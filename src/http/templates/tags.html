@@ -1,0 +1,70 @@
+{% extends base.html %}
+
+{% block css %}
+<link rel="stylesheet" type="text/css" href="/assets/custom/css/tags.css">
+{% end %}
+
+{% block content %}
+<div class="uk-grid" data-uk-grid-margin>
+    <div class="uk-width-1-1">
+        <table class="uk-table uk-table-condensed uk-table-striped uk-table-hover" id="tags-table">
+            <thead>
+                <tr>
+                    <th colspan="7">Create a new tag</th>
+                </tr>
+            </thead>
+            <tbody id="create-form">
+                <tr>
+                    <td>
+                        <select id="select-new-name" disabled></select>
+                    </td>
+                    <td>
+                        <select id="select-new-value" disabled></select>
+                    </td>
+                    <td class="uk-form">
+                        <input type="text" id="input-new-autotag" style="width: 100%">
+                    </td>
+                    <td></td>
+                    <td style="vertical-align: middle">
+                        <i class="uk-icon-check" id="new-home-uses" style="font-size: 20px"></i>
+                    </td>
+                    <td style="vertical-align: middle">
+                        <i class="uk-icon-check" id="new-relation" style="font-size: 20px"></i>
+                    </td>
+                    <td colspan="2" style="text-align: center">
+                        <button class="uk-button" id="submit" disabled>Submit</button>
+                    </td>
+                </tr>
+            </tbody>
+            <thead>
+                <tr><th colspan="7">Existing tags - click cells to edit</th></tr>
+                <tr>
+                    <th width="27%">Name</th>
+                    <th width="27%">Value</th>
+                    <th width="20%">Auto-tag</th>
+                    <th width="5%" title="Number of uses of this tags across all albums and videos" data-uk-tooltip="{pos: 'top-left'}">Usage</th>
+                    <th width="5%" title="Use this tag to display pictures and videos on the home page" data-uk-tooltip="{pos: 'top-left'}">Home</th>
+                    <th width="5%">Relation</th>
+                    <th width="10%">Delete&nbsp;&nbsp;<a href="#bottom" title="Goto Bottom" data-uk-tooltip="{pos: 'top-right'}"><i class="uk-icon-arrow-down"></i></a> </th>
+                </tr>
+            </thead>
+            <tbody id="content"></tbody>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th id="bottom"><a href="#create-form"><i class="uk-icon-arrow-up"></i></a></th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+</div>
+{% end %}
+
+{% block js %}
+<script src="/assets/custom/js/tags.js"></script>
+{% end %}

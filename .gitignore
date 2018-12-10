@@ -102,3 +102,13 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# custom
+log/
+workspace/
+dumps/
+data/
+_internal/
+setup/
+src/config/apiKeys/*
+lib/

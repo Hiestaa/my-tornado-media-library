@@ -1,0 +1,24 @@
+{#
+    This module will display a single video thumbnail, along with the modal that will allow to play the video
+    edit its related tags and metadata and download it.
+#}
+{% from conf import Conf %}
+
+<a class="uk-thumbnail uk-overlay-toggle" data-uk-modal="{target:'#modal-{{video['_id']}}'}" >
+    <div class="uk-overlay">
+        <img width="600" height="400" src="/download/snapshot/{{video['_id'] + '/' + video['thumbnail']}}" alt="">
+        <ul class="snapshots" style="display: none">
+        {% for i in range(video['nbSnapshots']) %}
+            <li class="snapshot">/download/snapshot/{{video['_id'] + '/' + str(i)}}</li>
+        {% end %}
+        </ul>
+        <div class="uk-overlay-area"></div>
+    </div>
+</a>
+<div id="modal-{{video['_id']}}" class="uk-modal">
+    <div class="uk-modal-dialog uk-modal-dialog-frameless">
+        <a href="" class="uk-modal-close uk-close uk-close-alt"></a>
+        <h2>{{video['filename']}}</h2>
+        <video url="/download/video/{{video['_id']}}">Video type not supported.</video>
+    </div>
+</div>

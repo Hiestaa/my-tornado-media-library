@@ -1,0 +1,11 @@
+{
+    "folders":
+    [
+        {
+            "path": ".",
+            "folder_exclude_patterns": ["log", "workspace", "dumps", "data"],
+            "file_exclude_patterns": ["*.sublime-workspace"],
+            "binary_file_patterns": ["_internal/*"]
+        }
+    ]
+}

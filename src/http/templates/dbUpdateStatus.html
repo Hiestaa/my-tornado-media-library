@@ -1,0 +1,62 @@
+{% extends base.html %}
+
+{% block content %}
+{% from tools.utils import timeFormat, dateFormat %}
+<div class="uk-grid">
+    <div class="uk-width-1-1">
+        <div id="current-status" class="uk-panel uk-panel-header uk-panel-box">
+            <h2 id="title" class="uk-panel-title">{% if status['finished'] %}Update complete{% else %}Update in progress{% end %}</h2>
+
+            <p id="description-running" class="{% if status['finished'] %}hidden{% end %}">
+                Currently updating: <span id="current-file" class="uk-badge uk-badge-large">{{status['file']}}</span>, performing: <span id="current-step" class="uk-badge uk-badge-large">{{status['step']}}</span>
+            </p>
+            <a id="update" class="uk-button uk-button-danger uk-panel-badge {% if not status['finished'] %}hidden{% end %}">Run Update</a>
+            <a id="interrupt" class="uk-button uk-button-danger uk-panel-badge {% if status['finished'] %}hidden{% end %}">Interrupt</a>
+            <p id="description-finished">
+                Database update lasted <span id="duration" class="uk-badge uk-badge-warning">{{timeFormat(status['duration'])}}</span>, processed <span id="nb-dones" class="uk-badge uk-badge-success">{{status['dones']}}</span> files.
+            </p>
+        </div>
+    </div>
+</div>
+<div class="uk-grid">
+    <div class="uk-width-1-1">
+        <table class="uk-table uk-table-hover uk-table-striped" id="table-current">
+            <caption>Videos processed during the current update</caption>
+            <thead>
+                <tr class="uk-table-middle">
+                    <th>File name</th>
+                    <th>Message</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file in status['fileList'] %}
+                    {% if 'snapshot' in file %}
+                        <tr id="{{ file['id'] }}" class="uk-table-middle" title="<img style='max-width: 400px; max-height: 400px' src='{{file.get('snapshot')}}'>" data-uk-tooltip="{pos:'bottom-left'}">
+                    {% else %}
+                        <tr id="{{ file['id'] }}" class="uk-table-middle" title="{{file['fileName']}}" data-uk-tooltip="{pos:'bottom-left'}">
+                    {% end %}
+                        {% if 'link' in file %}
+                            <td><a href="{{file['link']}}">{{file['fileName']}}</a></td>
+                        {% else %}
+                            <td>{{file['fileName']}}</td>
+                        {% end %}
+                        <td>{{file['error'] or ''}}</td>
+                        <td>
+                        {% if file['success'] %}
+                            <i class="uk-icon-check"></i>
+                        {% else %}
+                            <i class="uk-icon-close"></i>
+                        {% end %}
+                        </td>
+                    </tr>
+                {% end %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% end %}
+
+{% block js %}
+<script type="text/javascript" src="/assets/custom/js/db-update-status.js"></script>
+{% end %}

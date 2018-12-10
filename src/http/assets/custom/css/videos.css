@@ -1,0 +1,84 @@
+html {
+    width: 100%;
+    overflow-x: hidden;
+}
+
+#std-container,
+#full-screen-container {
+    min-height: calc(100vh - 540px);
+}
+
+.full-screen {
+    position: absolute;
+    top: 57px;
+    left: 15px;
+    font-size: 20px;
+    margin-top: 0 !important;
+    background-color: #272822;
+    border: 1px solid #000000;
+    border-radius: 10px;
+    padding: 7px 10px 7px 10px!important ;
+    cursor: pointer;
+}
+
+.full-screen:hover {
+    font-size: 25px;
+}
+
+.uk-pagination {
+    text-align: center;
+    padding-top: 10px;
+}
+
+.filters-combine-container {
+    position: relative;
+    left: 5%;
+}
+
+.sorting-order-container {
+    position: relative;
+    left: 10%;
+}
+.sorting-order-container .label{
+    font-size: 16px;
+    margin-right: 10px;
+}
+.sorting-order-container .selectize-control.single,
+.sorting-order-container .uk-button {
+    top: 8px;
+    position: relative;
+}
+.sorting-order-container .selectize-control.single {
+    width: 12rem;
+}
+.sorting-order-container.uk-button-group .selectize-control:not(:last-child) .selectize-input {
+    height: 30px;
+    border-top-left-radius: 5px !important;
+    border-bottom-left-radius: 5px !important;
+}
+
+.property-filter {
+    margin-right: 1rem;
+    margin-bottom: 1rem !important;
+}
+
+.remove-filter {
+    font-size: 10px;
+}
+@media (max-width: 1024px) {
+    .sorting-order-container {
+        text-align: center;
+        display: block;
+        margin-top: 10px;
+        position: static;
+    }
+}
+
+@media (max-width: 760px) {
+
+    .filters-combine-container {
+        text-align: center;
+        display: block;
+        margin-top: 10px;
+    }
+}

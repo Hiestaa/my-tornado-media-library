@@ -1,0 +1,79 @@
+{% extends baseFullScreen.html %}
+{% block css%}
+<link rel="stylesheet" type="text/css" href="/assets/custom/css/properties.css">
+<link rel="stylesheet" type="text/css" href="/assets/custom/css/slideshow.css">
+<link rel="stylesheet" type="text/css" href="/assets/uikit/css/components/slideshow.css">
+{% end %}
+
+{% block content %}
+<div class="uk-slidenav-position" data-uk-slideshow="{animation: 'scale', autoplay: true, kenburns:true, duration: 6000, autoplayInterval: 10000}" id="slideshow">
+    <ul class="uk-slideshow uk-slideshow-fullscreen">
+    </ul>
+    <a href="#!" class="uk-slidenav uk-slidenav-contrast uk-slidenav-previous" data-uk-slideshow-item="previous"></a>
+    <a href="#!" class="uk-slidenav uk-slidenav-contrast uk-slidenav-next" data-uk-slideshow-item="next"></a>
+    <a href="#!" class="uk-slidenav uk-slidenav-contrast uk-slidenav-10-previous" id="10-previous"></a>
+    <a href="#!" class="uk-slidenav uk-slidenav-contrast uk-slidenav-10-next" id="10-next"></a>
+</div>
+
+<a href="/albums"><span class="close uk-tooltip-bottom uk-icon-close" title="close"></span></a>
+<span class="status" id="pause"><i class="uk-icon-pause"></i></span>
+<span class="status" id="play"><i class="uk-icon-play"></i></span>
+
+<div class="uk-width-1-2" id="controls">
+    <div class="uk-panel uk-panel-header uk-panel-box" id="tags-list">
+        <div class="uk-panel-badge uk-badge-left"><button class="uk-button uk-button-primary" id="open-add-filter">Add Tag</button></div>
+        <div class="uk-panel-badge"><button class="uk-button uk-button-danger" id="open-delete-modal">Delete</button></div>
+        <h2 class="uk-panel-title" id="album-title"></h2>
+    </div>
+</div>
+
+<div id="delete-modal" class="uk-modal">
+    <div class="uk-modal-dialog">
+        <a class="uk-modal-close uk-close"></a>
+        <h1 class="uk-modal-header">Delete Warning</h1>
+        Are you sure that you wish to delete this picture? It will be permanentely removed from the album AND from the hard drive as well.
+        <div class="uk-modal-footer">
+            <button class="uk-button uk-button-danger" id="delete-picture">Delete</button>
+            <button class="uk-button uk-modal-close">Cancel</button>
+            <button class="uk-button uk-button-danger" id="delete-album">Delete whole album</button>
+        </div>
+        <div class="uk-modal-caption"><img src="" alt="Picture about to be deleted"></div>
+    </div>
+</div>
+<!-- <nav class="uk-navbar" id="controls">
+
+    <a class="uk-navbar-brand" href="#!">Controls</a>
+ -->
+<!--     <ul class="uk-navbar-nav">
+    </ul>
+ -->
+    <!-- <div class="uk-navbar-content">Some <a href="#">link</a>.</div> -->
+
+<!--     <div class="uk-navbar-content uk-hidden-small">
+        <form class="uk-form uk-margin-remove uk-display-inline-block">
+            <input placeholder="Search" type="text">
+            <button class="uk-button uk-button-primary">Submit</button>
+        </form>
+    </div>
+ -->
+<!--     <div class="uk-navbar-content uk-navbar-flip">
+        <div class="uk-button-group">
+            <button class="uk-button uk-button-primary" id="prev">Previous</button>
+            <button class="uk-button uk-button-primary" id="next">Next</button>
+        </div>
+    </div>
+
+</nav> -->
+{% end %}
+
+{% block js %}
+<script type="text/javascript" src="/assets/custom/js/properties.js"></script>
+<script src="/assets/custom/js/slideshow.js"></script>
+<script src="/assets/uikit/js/components/slideshow.js"></script>
+<script src="/assets/uikit/js/components/slideshow-fx.js"></script>
+<script type="text/javascript">
+$(function () {
+    new Slideshow('{{albumId}}', {{int(globals().get('pictureIdx', '0'))}});
+});
+</script>
+{% end %}

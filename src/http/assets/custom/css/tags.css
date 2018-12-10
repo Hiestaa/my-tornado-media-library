@@ -1,0 +1,41 @@
+#tags-table .tag-row td.tag-value:hover,
+#tags-table .tag-row td.tag-autotag:hover,
+#tags-table .tag-row td.tag-name:hover {
+    font-size: 17px;
+}
+#tags-table .tag-row td.tag-delete:hover,
+#tags-table .tag-row td.tag-home-uses:hover,
+#tags-table .tag-row td.tag-relation:hover {
+    font-size: 20px;
+}
+
+#tags-table .tag-row td:hover,
+#tags-table #new-relation,
+#tags-table #new-home-uses {
+    cursor: pointer;
+}
+
+#tags-table .tag-row {
+    line-height: 21px;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+#tags-table .tag-delete {
+    color: #A80000;
+}
+#tags-table .tag-delete:hover {
+    color: #FF0000;
+}
+#tags-table .tag-relation .uk-icon-check,
+#tags-table .tag-home-uses .uk-icon-check,
+#tags-table #new-home-uses.uk-icon-check,
+#tags-table #new-relation.uk-icon-check {
+    color: #00A800;
+}
+#tags-table .tag-relation:hover .uk-icon-check,
+#tags-table .tag-home-uses:hover .uk-icon-check,
+#tags-table #new-home-uses.uk-icon-check:hover,
+#tags-table #new-relation.uk-icon-check:hover {
+    color: #00FF00;
+}

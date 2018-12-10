@@ -1,0 +1,28 @@
+{% extends base.html %}
+{% block css%}
+<link rel="stylesheet" type="text/css" href="/assets/custom/css/properties.css">
+<link rel="stylesheet" type="text/css" href="/assets/custom/css/vid-player.css">
+<link rel="stylesheet" type="text/css" href="/assets/custom/css/vid-snap.css">
+{% end %}
+{% block content %}
+<a href="/videos"><span class="close uk-tooltip-bottom uk-icon-close" title="close"></span></a>
+<div class="uk-grid" data-uk-grid-margin id="vid-player-container">
+</div>
+{% end %}
+{% block js %}
+<script type="text/javascript" src="/assets/sparklines/jquery.sparkline.min.js"></script>
+<script type="text/javascript" src="/assets/custom/js/properties.js"></script>
+<script type="text/javascript" src="/assets/custom/js/scheduler.js"></script>
+<script type="text/javascript" src="/assets/custom/js/analyzer.js"></script>
+<script type="text/javascript" src="/assets/custom/js/vidPlayer.js"></script>
+<script type="text/javascript" src="/assets/custom/js/vidSnap.js"></script>
+<script type="text/javascript">
+    $(function () {
+        {% if globals().get('videoId', False) %}
+        new VideoPlayer("{{videoId}}");
+        {% else %}
+        new VideoPlayer()
+        {% end %}
+    });
+</script>
+{% end %}

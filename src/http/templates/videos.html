@@ -1,0 +1,62 @@
+{% extends base.html %}
+{% block css%}
+<link rel="stylesheet" type="text/css" href="/assets/custom/css/videos.css">
+<link rel="stylesheet" type="text/css" href="/assets/custom/css/vid-snap.css">
+<link rel="stylesheet" type="text/css" href="/assets/custom/css/properties.css">
+{% end %}
+{% block content %}
+<div class="uk-grid" tdata-uk-grid-margin>
+    <div class="uk-width-1-1">
+        <div class="uk-panel uk-panel-header uk-panel-box" id="filters-list">
+            <div class="uk-panel-badge"><button class="uk-button uk-button-primary" id="open-add-filter">Add Filter</button></div>
+            <h3 class="uk-panel-title">
+                Applied filters
+                <div data-uk-button-radio class="uk-button-group filters-combine-container">
+                    <button class="uk-button filters-combine uk-active" data-combine="any">Toggle Any</button>
+                    <button class="uk-button filters-combine" data-combine="all">Toggle All</button>
+                </div>
+                <div data-uk-button-radio class="sorting-order-container uk-button-group">
+                    <span class="label">Order by:</span>
+                    <select id="sorting">
+                        <option value="lastSeen" selected>Last time watched</option>
+                        <option value="seen">Times watched</option>
+                        <option value="display">Times shown</option>
+                        <option value="lastDisplay">Last time shown</option>
+                        <option value="creation">Date of import</option>
+                        <option value="duration">Duration</option>
+                        <option value="favorite">Stars</option>
+                        <option value="lastFavorite">Last time Starred</option>
+                        <!-- also change the selected in `vids.js:39` -->
+                        <option value="popularity">Popularity</option>
+                        <option value="nbTags">Number of tags</option>
+                        <option value="lastTagged">Last time tagged</option>
+                        <option value="fileSize">File Size</option>
+                        <option value="fps">FPS</option>
+                        <option value="faceRatio">Face Ratio</option>
+                        <option value="faceTime">Face Time</option>
+                        <option value="faceTimeProp">Face Time Prop</option>
+                    </select>
+                    <button class="uk-button sorting-order" data-order="1">Ascendant</button>
+                    <button class="uk-button sorting-order uk-active" data-order="-1">Descendant</button>
+                </div>
+            </h3>
+        </div>
+    </div>
+    <i class="uk-icon-expand full-screen" id="full-screen" data-uk-tooltip="{pos:'left'}" title="Go Full-Screen"></i>
+    <div class="uk-width-1-1" data-uk-grid-margin>
+        <div class="uk-grid" id="videos-container">
+            <div class="uk-width-1-1">
+                <ul class="uk-pagination">
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% end %}
+{% block js %}
+<script type="text/javascript" src="/assets/sparklines/jquery.sparkline.min.js"></script>
+<script type="text/javascript" src="/assets/custom/js/properties.js"></script>
+<script type="text/javascript" src="/assets/custom/js/filter.js"></script>
+<script type="text/javascript" src="/assets/custom/js/vids.js"></script>
+<script type="text/javascript" src="/assets/custom/js/vidSnap.js"></script>
+{% end %}

@@ -1,0 +1,124 @@
+.vid-snap.uk-thumbnail {
+    width: 100%;
+}
+.vid-snap .uk-overlay {
+    text-align: center;
+    width: 100%;
+    display: block;
+}
+
+.vid-snap .uk-overlay img {
+    display: inline;
+    transition: -webkit-transform ease 0.3s;
+    transition: transform ease 0.3s;
+    width: 100%;
+}
+.vid-snap .uk-overlay.no-transition img {
+    transition: none;
+    transition: none;
+
+}
+
+.vid-snap .uk-overlay .uk-overlay-area,
+.vid-snap  .uk-overlay.uk .uk-overlay-area,
+.vid-snap  .uk-overlay-toggle .uk-overlay-area,
+.vid-snap .uk-overlay-toggle.uk .uk-overlay-area {
+    opacity: 0.7 !important;
+}
+.vid-snap .uk-overlay:focus .uk-overlay-area,
+.vid-snap  .uk-overlay.uk:focus .uk-overlay-area,
+.vid-snap  .uk-overlay-toggle:focus .uk-overlay-area,
+.vid-snap .uk-overlay-toggle.uk:focus .uk-overlay-area,
+.vid-snap .uk-overlay:hover .uk-overlay-area,
+.vid-snap  .uk-overlay.uk:hover .uk-overlay-area,
+.vid-snap  .uk-overlay-toggle:hover .uk-overlay-area,
+.vid-snap .uk-overlay-toggle.uk:hover .uk-overlay-area {
+    opacity: 0 !important;
+}
+.vid-snap .uk-overlay-area:empty:before {
+    content: "" !important;
+}
+
+.vid-snap.uk-thumbnail {
+  border-color: #000 !important;
+  transition: border-color 0.3s ease-out;
+}
+
+.vid-snap.uk-thumbnail:focus,
+.vid-snap.uk-thumbnail:hover {
+  border-color:#2D2D2D !important;
+}
+
+.uk-overlay-area:not(:empty) {
+    font-size: 14px;
+}
+
+.vid-snap .uk-overlay-area > span {
+    display: inline;
+    color: rgba(255, 255, 255, 1);
+    text-shadow: 2px 2px 3px #000;
+    font-weight: bold;
+    position: absolute;
+}
+
+.vid-snap .uk-overlay-area > span.name {
+    left: 1rem;
+    top: 1rem;
+    max-width: calc(100% - 2rem);
+    display: inline;
+    word-wrap: break-word;
+}
+.vid-snap .uk-overlay-area > span.duration {
+    right: 1rem;
+    bottom: 1rem;
+}
+.vid-snap .uk-overlay-area > span.resolution {
+    left: 1rem;
+    bottom: 1rem;
+}
+.vid-snap .uk-overlay-area > span.size {
+    bottom: 1rem;
+    white-space: nowrap;
+    width: 100%;
+    left: 0;
+}
+.vid-snap.hover {
+    position: relative;
+    z-index: 1000;
+}
+
+.vid-snap.expand-on-hover {
+    transition: all 0.1s ease-out;
+    position: relative;
+    top: 0;
+    left: 0;
+}
+
+.vid-snap-parent {
+    overflow: visible;
+    /*position: relative;*/
+    margin-bottom: 20px;
+}
+
+
+.vid-snap.expand-on-hover div.uk-overlay {
+    /*transition: height 0.2s ease-out;*/
+}
+
+.vid-snap.expand-on-hover.hover {
+    width: 160% !important;
+    max-width: 160% !important;
+}
+
+.vid-snap.expand-on-hover.hover.left {
+    left: -60%;
+}
+.vid-snap.expand-on-hover.hover.top {
+    top: -60%;
+}
+.vid-snap.expand-on-hover.hover.center {
+    left: -30%;
+}
+.vid-snap.expand-on-hover.hover.middle {
+    top: -30%;
+}

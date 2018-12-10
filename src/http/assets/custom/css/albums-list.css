@@ -1,0 +1,28 @@
+#albums-list .album-item {
+    margin-bottom: 25px;
+    cursor: pointer;
+}
+
+#albums-list .album-item .uk-panel .uk-panel-teaser img{
+    width: calc(100% - 2px);
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    margin-top: 1px;
+    margin-left: 1px;
+}
+
+#albums-list .album-item .album-title {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+#albums-list .album-item:hover .album-title a{
+    color: #3b68fd;
+    text-decoration: underline;
+}
+
+#albums-list #loading-info {
+    text-align: center;
+    font-size: 10rem;
+    color: #656758;
+}

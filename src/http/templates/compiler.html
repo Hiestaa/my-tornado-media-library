@@ -1,0 +1,62 @@
+{% extends base.html %}
+{% block css%}
+<link rel="stylesheet" type="text/css" href="/assets/custom/css/properties.css">
+<link rel="stylesheet" type="text/css" href="/assets/custom/css/compiler.css">
+<link rel="stylesheet" href="/assets/js-cover-flow/coverflow.css"/>
+{% end %}
+{% block content %}
+<div class="uk-grid" data-uk-grid-margin id="compiler-container">
+    <div class="uk-width-1-1">
+        <div class="uk-panel uk-panel-header uk-panel-box">
+            <div class="uk-panel-badge"><button class="uk-button uk-button-primary" id="open-add-filter">Add Filter</button></div>
+            <div class="panel-pre-title">
+                <h3>Applied filters</h3>
+                <div data-uk-button-radio class="uk-button-group filters-combine-container">
+                    <button class="uk-button filters-combine uk-active" data-combine="any">Toggle Any</button>
+                    <button class="uk-button filters-combine" data-combine="all">Toggle All</button>
+                </div>
+            </div>
+            <h2 class="inline">Video Compiler</h2>
+            <hr>
+            <div id="filters-list"></div>
+            <hr>
+            <div class="panel-footer">
+                <h3>Additional options</h3>
+                <div id="options" class="properties-select"></div>
+                <button class="uk-button uk-button-success uk-button-large" id="generate">Generate</button>
+            </div>
+        </div>
+    </div>
+    <div class="uk-width-1-1" data-uk-grid-margin>
+        <div class="uk-grid" id="visualization">
+            <div class="uk-width-1-1">
+                <h2>Compilation Progression</h2>
+                <h3>Candidates</h3>
+                <p>A number of candidate segments will be extracted from each analyzed video. The candidates will be displayed, aggregated by video keep the number of images low, using a coverflow below when the process begins. Not all of these segments will be appear in the final compiledvideo. Further selection will happen later and be rendered in the sections further down below.</p>
+                <div id="candidates-section">
+                    <span id="refresh" class="refresh uk-badge uk-badge-notification uk-badge-large" data-uk-tooltip title="Pending number of segments, aggregated by video. Click to refresh."><i class="uk-icon-refresh"></i><i id="content"></i></span>
+                    <div id="coverflow-candidates"></div>
+                </div>
+                <h3>Selection</h3>
+                <p>The selected strategy will be applied to select segents among the candidates that will be used to compile the final video. Unlike the previous section, each image displayed below will match on segment, in the order in which they will be compiled.</p>
+                <div id="selected-section">
+                    <span id="refresh" class="refresh uk-badge uk-badge-notification uk-badge-large" data-uk-tooltip title="Pending number of segments. Click to refresh."><i class="uk-icon-refresh"></i><i id="content"></i></span>
+                    <div id="coverflow-selected"></div>
+                </div>
+                <h3>Compilation</h3>
+                <p>The final compilation happens in as many stage as there is segments, each stage blending two segments together using a cross-fade filter. A thumbnail will appear below for each compiled temporary video.</p>
+                <h3>Compilation Logs</h3>
+                <pre id="compilation-logs"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% end %}
+{% block js %}
+<script type="text/javascript" src="/assets/js-cover-flow/coverflow.js"></script>
+<script type="text/javascript" src="/assets/custom/js/properties.js"></script>
+<script type="text/javascript" src="/assets/custom/js/filter.js"></script>
+<script type="text/javascript" src="/assets/custom/js/scheduler.js"></script>
+<script type="text/javascript" src="/assets/custom/js/compiler.js"></script>
+{% end %}

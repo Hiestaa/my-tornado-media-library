@@ -1,0 +1,72 @@
+html {
+    width: 100%;
+    overflow-x: hidden;
+}
+
+.filters-combine-container {
+    position: relative;
+    left: 5%;
+}
+
+.inline {
+    display: inline-block;
+    position: relative;
+    left: auto;
+    width: calc(100% - 325px * 2);
+    margin-top: 0;
+    text-align: center;
+}
+
+.panel-pre-title {
+    width: 325px;
+    display: inline-block;
+}
+.panel-pre-title h3,
+.panel-pre-title div {
+    display: inline-block;
+}
+
+.panel-footer {
+    width: 100%;
+    display: block;
+    border-top: ;
+}
+
+.panel-footer #generate {
+    float: right;
+}
+
+.panel-footer .properties-select .properties-item {
+    width: calc(100px + 10%);
+}
+.panel-footer .properties-select .properties-item label {
+    display: block;
+    color: #fff;
+    font-size: 12px;
+    font-style: italic;
+}
+
+#visualization #candidates-section,
+#visualization #selected-section {
+    height: 500px;
+    position: relative;
+}
+
+#visualization #candidates-section .refresh,
+#visualization #selected-section .refresh {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    cursor: pointer;
+    z-index: 11;
+}
+#visualization #candidates-section .refresh #content:not(:empty),
+#visualization #selected-section .refresh #content:not(:empty) {
+    padding-left: 5px;
+}
+.properties-select .properties-item.compile-option {
+   height: 65px;
+}
+.properties-select .properties-item.compile-option button i + span {
+    padding-left: 5px;
+}

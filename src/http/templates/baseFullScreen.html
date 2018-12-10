@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Welcome</title>
+        <link rel="icon" href="/assets/custom/img/favicon.png" type="image/png">
+        <link rel="stylesheet" href="/assets/selectize/css/selectize.bootstrap2.css">
+        <link rel="stylesheet" href="/assets/uikit/css/uikit-custom.css">
+        <link rel="stylesheet" href="/assets/uikit/css/components/notify.gradient.min.css">
+        <link rel="stylesheet" href="/assets/custom/css/uikit-fix.css">
+        <link rel="stylesheet" href="/assets/custom/css/custom.css">
+        <link rel="stylesheet" href="/assets/custom/css/tags-displayer.css">
+        <!-- <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet"> -->
+        <link href="/assets/uikit/css/font-awesome.min.css" rel="stylesheet">
+        <style type="text/css">
+        .danger-list-item {
+            background-color: #710000;
+        }
+        .danger-list-item:hover {
+            background-color: #B00000 !important;
+        }
+        .warning-list-item {
+            background-color: #7D4206;
+        }
+        .warning-list-item:hover {
+            background-color: #B35E09 !important;
+        }
+        </style>
+        {% block css %}
+        {% end %}
+    </head>
+
+    <body>
+        <div id="full-screen-container" style="display: none"></div>
+        <div id="std-container">
+            <nav class="uk-navbar uk-margin-bottom">
+                <a class="uk-navbar-brand uk-hidden-small" href="/">Brand<i class="uk-icon-home"></i></a>
+                <ul class="uk-navbar-nav">
+                    <li class="{% if currentPage == 'videos' %}uk-active{% end %}"><a href="/videos">Videos</a></li>
+                    <li class="{% if currentPage == 'albums' %}uk-active{% end %}"><a href="/albums">Albums</a></li>
+                    <li class="{% if currentPage == 'compiler' %}uk-active{% end %}"><a href="/compiler">Compiler</a></li>
+                </ul>
+                <a href="#offcanvas" class="uk-navbar-toggle uk-visible-small" data-uk-offcanvas></a>
+                <div class="uk-navbar-brand uk-navbar-center uk-visible-small">T/V</div>
+                <ul class="uk-navbar-nav uk-navbar-flip uk-hidden-small">
+                    <li class="uk-parent {% if currentPage == 'admin' or currentPage == 'tags' %}uk-active{% end %}" data-uk-dropdown="">
+                        <a href="#!">Admin</a>
+                        <div style="" class="uk-dropdown uk-dropdown-navbar">
+                            <ul class="uk-nav uk-nav-navbar">
+                                <li class="uk-nav-header">Database</li>
+                                <li><a href="/action/db/display">Display Status</a></li>
+                                <li><a href="/action/db/update" class="danger-list-item">Start Update Task</a></li>
+                                <li class="uk-nav-header">Tags</li>
+                                <li><a href="/tags">Manage Tags</a></li>
+                                <li class="uk-nav-header">Server</li>
+                                <!-- <li><a href="/action/db/update">Restart</a></li> -->
+                                <li><a href="/action/server/kill" class="warning-list-item">Quit Application</a></li>
+                            </ul>
+                        </div>
+                    </li>
+                </ul>
+            </nav>
+
+            {% if globals().get('fullWidth', False) or locals().get('fullWidth', False) %}
+                <div class="uk-container fluid uk-container-center">
+            {% else %}
+                <div class="uk-container uk-container-center">
+            {% end %}
+                    {% block content %}
+                    {% end %}
+                </div>
+        </div>
+        <div id="loading-overlay" style="display: none"><i title="Close spinner" data-uk-tooltip="{pos: 'bottom-right'}" class="uk-icon uk-icon-close" id="close-spinner"></i><div><i class="fa fa-spinner fa-spin"></i></div></div>
+
+        <script src="/assets/jquery/jquery-2.1.1.min.js"></script>
+        <script src="/assets/qs.js"></script>
+        <script src="/assets/uikit/js/uikit.min.js"></script>
+        <script src="/assets/uikit/js/components/pagination.min.js"></script>
+        <script src="/assets/uikit/js/components/notify.min.js"></script>
+        <script src="/assets/selectize/js/selectize.js"></script>
+        <script src="/assets/custom/js/utils.js"></script>
+        <script src="/assets/custom/js/tagsDisplayer.js"></script>
+        {% block js %}
+        {% end %}
+    </body>
+</html>

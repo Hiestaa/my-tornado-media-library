@@ -1,0 +1,74 @@
+#std-container {
+    min-height: 60vh;
+}
+
+#full-screen-container {
+    padding: 15px
+}
+
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    display: table;
+    height: 100%;
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+    color: #FFF;
+    font-size: 70px;
+}
+
+#loading-overlay div{
+    display: table-cell;
+    vertical-align: middle;
+    text-align: center
+}
+
+#loading-overlay #close-spinner {
+    position: fixed;
+    font-size: 7rem;
+    color: #2E2E10;
+    top: 2.5rem;
+    right: 2.5rem;
+    opacity: 0.5;
+    transition: color 1s linear;
+    cursor: pointer;
+}
+
+#loading-overlay #close-spinner:hover {
+    color: #5F5F5F;
+}
+
+.tm-footer {
+    margin: 200px 0 0 0;
+    padding: 100px 0;
+    background: #171116;
+}
+.tm-footer .logo img {
+    width: 50px;
+    height: auto;
+}
+
+.tm-footer .logo span {
+    font-size: 160%;
+    padding-left: 15px;
+}
+.full-page-overlay {
+    opacity: 0;
+    position: fixed;
+    z-index: -1;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 100vw;
+    background-color: black;
+    transition: opacity 1s ease-out;
+}
+
+.full-page-overlay.no-transition {
+    transition: none;
+}
+
+.full-page-overlay.visible {
+    opacity: 0.9;
+    z-index: 100;
+}

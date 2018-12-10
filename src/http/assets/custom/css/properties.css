@@ -1,0 +1,100 @@
+.properties-select,
+.properties-select div,
+.properties-select li,
+.properties-select li a {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+
+.properties-select .uk-button-group > .uk-button:first-child,
+.properties-select .uk-button-group > .uk-form > .uk-button:first-child,
+.properties-select .uk-button-group > div:first-child .uk-button {
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+
+}
+.properties-select .uk-button-group > .uk-button:last-child,
+.properties-select .uk-button-group > .uk-form > .uk-button:last-child,
+.properties-select .uk-button-group > div:last-child .uk-button {
+    border-top-left-radius: 5px;
+    border-bottom-left-radius: 5px;
+}
+
+.properties-select .uk-button-group input:not(:first-child) {
+    border-top-left-radius: 0px;
+    border-bottom-left-radius: 0px;
+}
+
+.properties-select .properties-item .slider {
+    display: inline-block;
+    position: relative;
+    width: 75% !important;
+    height: 0.88889rem !important;
+    border: 1px solid #DDD;
+    margin: 0.55rem 12px;
+    background: none repeat scroll 0% 0% #FAFAFA;
+    overflow: visible;
+    cursor: pointer;
+}
+
+.properties-select .properties-item .slider span.slider-handle {
+    transform: translateX(-1px);
+    display: inline-block;
+    position: absolute;
+    z-index: 1;
+    top: -0.27778rem;
+    width: 12px;
+    height: 1.42222rem;
+    cursor: pointer;
+    background: none repeat scroll 0% 0% #BA0000;
+}
+
+.properties-select .properties-item .slider span.slider-handle:hover {
+    background-color: #950000;
+}
+
+.properties-select .properties-item .slider span.slider-handle:active {
+    background-color: #6C0000;
+}
+
+.properties-select .properties-item .selectize-control {
+    width: 80%;
+    margin-bottom: 7px;
+}
+
+.properties-select .properties-item .selectize-input {
+    height: 30px;
+    line-height: 15px;
+}
+
+.properties-select .properties-item .selectize-control .item {
+    display: inline;
+}
+
+.properties-select .properties-item {
+    margin-right: 15px;
+}
+
+.uk-nav-offcanvas .uk-parent > div {
+    transition: max-height ease-out 0.5s;
+    max-height: 0px;
+    height: inherit !important;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+}
+.uk-nav-offcanvas .uk-parent div {
+    width: 100%;
+}
+
+.uk-nav-offcanvas .uk-parent.uk-open > div {
+    max-height: 265px;
+}
+
+.properties-select .properties-item.text input {
+    width: 80%;
+}
