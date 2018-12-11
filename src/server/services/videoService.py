@@ -314,15 +314,15 @@ class VideoService(Service):
             mongo_criteria.append(mongo_filtre)
 
         # populate mongodb criteria with tags filters
-        if criteria['type'] == 'all' and len(criteria['tags']) > 0:
-            mongo_criteria.append({'tags': {'$all': criteria['tags']}})
-        elif criteria['type'] == 'any' and len(criteria['tags']) > 0:
-            for filtre in criteria['tags']:
-                tagId = filtre['$value']
-                if filtre.get('$negated', False):
-                    mongo_criteria.append({'tags': {'$ne': tagId}})
-                else:
-                    mongo_criteria.append({'tags': tagId})
+        # if criteria['type'] == 'all' and len(criteria['tags']) > 0:
+        #     mongo_criteria.append({'tags': {'$all': criteria['tags']}})
+        # elif criteria['type'] == 'any' and len(criteria['tags']) > 0:
+        for filtre in criteria['tags']:
+            tagId = filtre['$value']
+            if filtre.get('$negated', False):
+                mongo_criteria.append({'tags': {'$ne': tagId}})
+            else:
+                mongo_criteria.append({'tags': tagId})
 
         # avoid error when noting is specified
         if len(mongo_criteria) == 0:

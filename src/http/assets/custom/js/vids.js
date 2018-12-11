@@ -247,28 +247,11 @@ data-uk-tooltip="{pos:\'left\'}" title="Quit Full-Screen" style="top: 15px; z-in
 
         self.reloadSession = function () {
             self.filter.clear();
-            self.loadExistingFilters(self.session.getFilters());
             self.loadSortingOrder(self.session.get('sort') || self.defaultSort);
             self.loadCombineType(self.session.get('combine') || self.defaultCombineType);
-            self.loadCurrentPage(self.session.get('page') || '0');
-        }
-
-        self.loadExistingFilters = function (filters) {
-            if (!filters) { return; }
-            for (type in filters) {
-                if (!filters[type]) { continue; }
-                for (uid in filters[type]) {
-                    if (!filters[type][uid]) { continue; }
-                    if (isPositiveInteger(filters[type][uid].value))
-                        value = parseInt(filters[type][uid].value);
-                    else
-                        value = filters[type][uid].value;
-                    self.filter.onAddProperty(
-                        type, filters[type][uid].name,
-                        value, uid,
-                        {do_not_save: true, do_not_reload: true, negated: filters[type][uid].negated});
-                }
-            }
+            self.filter.loadExistingFilters(self.session.getFilters(), () => {
+                self.loadCurrentPage(self.session.get('page') || '0');
+            });
         }
 
         self.loadSortingOrder = function (sort) {

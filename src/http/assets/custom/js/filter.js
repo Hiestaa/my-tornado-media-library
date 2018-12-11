@@ -155,6 +155,7 @@ $(function() {
             self._onCriteriaUpdated(self.criteria, options);
         };
 
+        self.afterTagsReceivedCb = null;
         self.onRcvTags = function (tags) {
             self.tagNames = [];
             self.tagValues = {};
@@ -174,6 +175,11 @@ $(function() {
                     'tag', i, name, options);
             };
 
+            if (self.afterTagsReceivedCb) {
+                self.afterTagsReceivedCb();
+                self.afterTagsReceivedCb = null;
+            }
+
             spinLoading('stop');
         }
         self.loadTags = function () {
@@ -190,6 +196,34 @@ $(function() {
             });
         }
 
+
+        self.loadExistingFilters = function (filters, done) {
+            if (!filters) { return; }
+            // delay if tags aren't loaded yet
+            if (!self.tagNames) {
+                self.afterTagsReceivedCb = () => self.loadExistingFilters(filters, done);
+                return;
+            }
+
+            for (type in filters) {
+                if (!filters[type]) { continue; }
+                for (uid in filters[type]) {
+                    if (!filters[type][uid]) { continue; }
+                    if (isPositiveInteger(filters[type][uid].value))
+                        value = parseInt(filters[type][uid].value);
+                    else
+                        value = filters[type][uid].value;
+                    self.onAddProperty(
+                        type, filters[type][uid].name,
+                        value, uid,
+                        {do_not_save: true, do_not_reload: true, negated: filters[type][uid].negated});
+                }
+            }
+
+            if (done) {
+                done();
+            }
+        }
 
         self.initialize = function () {
             // create properties manager, and add all properties available for filtering the video

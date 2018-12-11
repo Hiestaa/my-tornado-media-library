@@ -112,3 +112,4 @@ _internal/
 setup/
 src/config/apiKeys/*
 lib/
+*.sublime-workspace

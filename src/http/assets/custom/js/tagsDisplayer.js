@@ -192,7 +192,7 @@ $(function () {
 
         self.hide = function () {
             clearTimeout(self.hideDelayer);
-            self.hideDelayer = setTimeout(self._doHide, 5000);
+            self.hideDelayer = setTimeout(self._doHide, 1000);
         }
 
         $('#tags-displayer .close').click(this._doHide);
