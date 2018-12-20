@@ -305,7 +305,7 @@ class Walker(Thread):
         # actual generation
         try:
             if not os.path.exists(spec['snapFolder']):
-                os.mkdir(spec['snapFolder'])
+                os.makedirs(spec['snapFolder'])
             nbCreatedSnapshots = len(os.listdir(spec['snapFolder']))
             if nbCreatedSnapshots == 0:
                 command = FFMPEG_CMDS['generateSnapshots'].format(**spec)
@@ -325,7 +325,7 @@ class Walker(Thread):
         if return_code == 0:
             snapFolder = spec['snapFolder'][len(Conf['data']['videos']['rootFolder']):]
 
-            return extends(data, snapshotsFolder=spec['snapFolder'], snapshotsError=False)
+            return extends(data, snapshotsFolder=spec['snapFolder'], snapshotsError=False, nbCreatedSnapshots=nbCreatedSnapshots)
         else:
             return extends(data, snapshotsError=True)
 
@@ -334,9 +334,9 @@ class Walker(Thread):
             'ffprobe': Conf['data']['ffmpeg']['probePath'],
             'videoPath': videoPath
         })
-        logging.info("> %s" % command)
+        logging.debug("> %s" % command)
         res = subprocess.Popen(command, stdout=subprocess.PIPE).communicate()[0].strip()
-        logging.info("[OUT]: %s" % res)
+        logging.debug("[OUT]: %s" % res)
         return float(res)
 
     def __ffmpeg_get_fps(self, videoPath):
@@ -344,9 +344,9 @@ class Walker(Thread):
             'ffprobe': Conf['data']['ffmpeg']['probePath'],
             'videoPath': videoPath
         })
-        logging.info("> %s" % command)
+        logging.debug("> %s" % command)
         res = subprocess.Popen(command, stdout=subprocess.PIPE).communicate()[0].strip()
-        logging.info("[OUT]: %s" % res)
+        logging.debug("[OUT]: %s" % res)
         res = res.split(b'/')
         if res == '0/0':
             return 24  # assumes 24
@@ -357,9 +357,9 @@ class Walker(Thread):
             'ffprobe': Conf['data']['ffmpeg']['probePath'],
             'videoPath': videoPath
         })
-        logging.info("> %s" % command)
+        logging.debug("> %s" % command)
         res = subprocess.Popen(command, stdout=subprocess.PIPE).communicate()[0].strip()
-        logging.info("[OUT]: %s" % res)
+        logging.debug("[OUT]: %s" % res)
         res = res.split(b',')
         if len(res) == 0 or len(res) == 1:
             return 1920, 1080
@@ -461,9 +461,13 @@ class Walker(Thread):
             else:
                 fileObj = {'fileName': os.path.basename(videoPath), 'success': True, 'error': None}
             if 'inserted_id' in data:
+                if 'nbCreatedSnapshots' in data and data['nbCreatedSnapshots'] > 1:
+                    snapshot = int(data['nbCreatedSnapshots'] / 2)
+                else:
+                    snapshot = 0
                 fileObj['link'] = '/videoplayer/videoId=' + data['inserted_id']
                 fileObj['id'] = data['inserted_id']
-                fileObj['snapshot'] = '/download/snapshot/' + data['inserted_id'] + '/1'
+                fileObj['snapshot'] = '/download/snapshot/' + data['inserted_id'] + '/' + str(snapshot)
             self._progress['fileList'].append(fileObj)
         return data
 

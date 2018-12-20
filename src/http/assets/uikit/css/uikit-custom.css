@@ -272,7 +272,7 @@ iframe {
   float: left;
 }
 .uk-grid > * > :last-child {
-  margin-bottom: 40px;
+  /*margin-bottom: 40px;*/
 }
 .uk-grid + .uk-grid {
   margin-top: 25px;

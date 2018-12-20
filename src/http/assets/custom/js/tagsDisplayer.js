@@ -13,9 +13,16 @@ $(function () {
                 <th id="time-display" colspan="2" width="50%"></th>\
             </tr>\
             <tr class="small">\
-                <th width="50%" colspan="2" id="resolution-title">Resolution</th>\
+                <th width="50%" id="resolution-title">Resolution</th>\
                 <td id="resolution-display" width="25%"></td>\
                 <td id="fps-display" width="25%"></td>\
+                <td id="size-display" width="25%"></td>\
+            </tr>\
+            <tr class="small hidden" id="analysis-row">\
+                <th width="25%" id="analysis-title">Face ratio/time/prop</th>\
+                <td id="face-ratio-display" width="25%"></td>\
+                <td id="face-time-display" width="25%"></td>\
+                <td id="face-prop-display" width="25%"></td>\
             </tr>\
             <tr class="small">\
                 <th width="50%" colspan="2" id="created-title">Created <i class="uk-icon-calendar" /></th>\
@@ -24,22 +31,22 @@ $(function () {
             <tr class="small">\
                 <th width="35%" id="display-title">Display <i class="uk-icon-slack" /> / <i class="uk-icon-calendar" /></th>\
                 <th id="display-display" width="15%"></th>\
-                <td id="last-display-display" width="50%" colspan="2"></td>\
+                <td id="last-display-display" colspan="2" width="50%"></td>\
             </tr>\
             <tr class="small">\
                 <th width="35%" id="seen-title">Watched <i class="uk-icon-slack" /> / <i class="uk-icon-calendar" /></th>\
                 <th id="seen-display" width="15%"></th>\
-                <td id="last-seen-display" width="50%" colspan="2"></td>\
+                <td id="last-seen-display" colspan="2" width="50%"></td>\
             </tr>\
             <tr class="small">\
                 <th width="35%" id="favorite-title">Starred <i class="uk-icon-slack" /> / <i class="uk-icon-calendar" /></th>\
                 <th id="favorite-display" width="15%"></th>\
-                <td id="last-favorite-display" width="50%" colspan="2"></td>\
+                <td id="last-favorite-display" colspan="2" width="50%"></td>\
             </tr>\
             <tr class="small">\
                 <th width="35%" id="tagged-title">Tags <i class="uk-icon-slack" /> / <i class="uk-icon-calendar" /></th>\
                 <th id="tagged-display" width="15%"></th>\
-                <td id="last-tagged-display" width="50%" colspan="2"></td>\
+                <td id="last-tagged-display" colspan="2" width="50%"></td>\
             </tr>\
         </thead>\
         <tfoot><tr><td id="activity-history" colspan="4"></td></tr></tfoot>\
@@ -58,6 +65,8 @@ $(function () {
             $('#tags-displayer #title-display').html(video.name);
             $('#tags-displayer #time-display').html(video.duration_str);
             $('#tags-displayer #time-display').css('color', colorMapping('duration', video.duration));
+            $('#tags-displayer #size-display').html(video.fileSize_str);
+            $('#tags-displayer #size-display').css('color', colorMapping('size', video.fileSize));
             $('#tags-displayer #width-display').html(video.width + ' x ');
             $('#tags-displayer #resolution-display').html(video.width + ' x ' + video.height);
             $('#tags-displayer #resolution-display').css('color', colorMapping('resolution', [video.width, video.height]));
@@ -72,6 +81,16 @@ $(function () {
             $('#tags-displayer #last-favorite-display').html(video.lastFavorite_str);
             $('#tags-displayer #tagged-display').html(tagsList.length);
             $('#tags-displayer #last-tagged-display').html(video.lastTagged_str);
+            if (video.faceTime || video.faceTimeProp || video.faceRatio) {
+                $('#tags-displayer #analysis-row').removeClass('hidden');
+                var color = colorMapping('faceTimeProp', video.faceTimeProp);
+                $('#tags-displayer #face-ratio-display').css('color', color).html(video.faceRatio.toString().slice(0, 6) + ' %');
+                $('#tags-displayer #face-time-display').css('color', color).html(video.faceTime + ' frames');
+                $('#tags-displayer #face-prop-display').css('color', color).html(video.faceTimeProp.toString().slice(0, 6) + ' %');
+            }
+            else {
+                $('#tags-displayer #analysis-row').addClass('hidden');
+            }
         }
 
         self.updateTagsDetails = function(tagsList) {

@@ -43,6 +43,7 @@ $(function () {
         self.replace = options.replace !== undefined ? options.replace : false;
         self.append = options.append !== undefined ? options.append : false;
         self.showDetails = options.showDetails !== undefined ? options.showDetails : true;
+        self.revealFullPageOverlay = options.revealFullPageOverlay !== undefined ? options.revealFullPageOverlay : true;
         self.detailsPosition = options.detailsPosition !== undefined ? options.detailsPosition : 'center';
         self.expandOnHover = options.expandOnHover;
         self.selector = selector;
@@ -156,7 +157,9 @@ $(function () {
                 self.firstEnter = false;
                 // change height (width is handled by the css)
                 self.$div.find('.vid-snap').addClass('hover');
-                fullPageOverlay.show();
+                if (self.revealFullPageOverlay) {
+                    fullPageOverlay.show();
+                }
                 if (self.expandOnHover) {
                     self.overlayHeight = self.initOverlayHeight * 1.6;
                     // add '.hover' class manually rather than using :hover,
@@ -182,7 +185,9 @@ $(function () {
             }
             // change overlay height
             self.$div.find('.vid-snap').removeClass('hover');
-            fullPageOverlay.hide();
+            if (self.revealFullPageOverlay) {
+                fullPageOverlay.hide();
+            }
 
             if (self.expandOnHover) {
                 self.overlayHeight = self.initOverlayHeight;

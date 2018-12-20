@@ -1,5 +1,52 @@
 ### Changelog
 
+### *Thursday Dec 20*
+
+* Make visually apparent the fact that a video has been analyzed: add an icon somewhere in the video title and the "Analyze" label making obvious that this has been done already
+* Support forcing re-analysis when it has already been completed. Only generate minivid if needed
+* Fixed thumbnail delete issue when thumbnail was never set
+
+### *Wednesday Dec 19*
+
+* Display the face time, face time propertion and face ratio average in the video details
+* Display the time it took between the execution of a frame and the execution of the subsequent one, if more than the expected delay happened between the two (whether due to server lag between two steps due to slower generation than display, server lag to load the image or delay in the actual execution (tho this is already implemented))
+
+
+### *Tuesday Dec 18 2018*
+
+* If the analysis was interrupted or cleaned up, restart when reopening the modal.
+  (if got completed, don't, as it would cleanup the completed existing analysis)
+  Be sure to reset the state of the visualizer when doing so.
+* Fixed mouse over the sparkline not displaying the right frame
+* Retrieve detection confidence value (only for the dlib extractr)
+
+### *Mon Dec 17 2018*
+
+* Support control the current visualizing step using the sparkline mouseover
+* Support interrupting the analysis
+* Support cleaning up analysis workspace (a button appearing when the analysis is complete?)
+
+### *Sun Dec 16*
+
+* Move minivid images to `./workspace`
+* Add progress bar to minivid generation
+* Add progress bar to batches analysis and post-processing
+* Log download related web requests as debug
+* Store completed analysis cache in the snapshot folder
+* Fix bugs where images were not presented in the right order to the annotator causing analysis
+  result of the wrong frame to be rendered.
+  It was due to the alphabetical order not matching the frame order when the number of digits of the
+  frame number was exceeding the allowed number (e.g. 10000+ on a 4 digits-basis)
+
+### *Thursday Dec 11 2018*
+
+(and previous days)
+
+* Revamp of the analyzer code to support two other face extraction algorithm both based on DeepFaceLab
+* Add visualization of the rect detection progress (pre-step of the face detection)
+* Add rewind & image-per-image mode to the analysis visualizer
+* Don't log download-related web requests
+
 ### *Sun Dec 09 2018*
 
 * Fixed vidsnap jankyness when initially adding all snapshots

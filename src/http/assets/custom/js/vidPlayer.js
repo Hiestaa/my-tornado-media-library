@@ -29,7 +29,8 @@ $(function () {
         <div class="uk-panel-badge"><button class="uk-button uk-button-danger" id="delete-video">Delete</button></div>\
         <h2 class="uk-panel-title" id="video-title">\
         <span id="to-watch" class="uk-icon-eye" title="Mark as \'To Watch\'" data-uk-tooltip="{pos: \'top-right\'}"></span>\
-        <a href="{{url}}" target="_blank">{{title}}</a>\
+        <i class="uk-icon-cogs" title="This video has been analyzed already!" data-uk-tooltip="{pos: \'top-right\'}"></i>\
+        <a href="{{url}}" target="_blank" id="video-title-link">{{title}}</a>\
         <span id="star" class="uk-icon-star" title="Star this video" data-uk-tooltip="{pos: \'top-right\'}">&nbsp;({{favorite}})</span>\
         </h2>\
     </div>\
@@ -59,35 +60,86 @@ $(function () {
         </div>\
         <div class="uk-form-row">\
             <label class="uk-form-label" for="width">Resolution & FPS</label>\
-            <div class="uk-form-controls">\
-                <input id="width" value="{{width}}" class="uk-width-1-4" type="text" title="Width (in px)" data-uk-tooltip="{pos: \'bottom-left\'}">&nbsp;x&nbsp;\
-                <input id="height" value="{{height}}" class="uk-width-1-4" type="text" title="Height (in px)" data-uk-tooltip="{pos: \'bottom-left\'}">&nbsp;@&nbsp;\
-                <input id="fps" value="{{fps}}" class="uk-width-1-4" type="text" title="Frame per second" data-uk-tooltip="{pos: \'bottom-left\'}">&nbsp;FPS\
+            <div class="uk-form-controls uk-grid has-labels">\
+                <div class="uk-width-1-3">\
+                    Width (in px)\
+                     <input id="width" value="{{width}}" type="text" title="Type enter to save" data-uk-tooltip="{pos: \'bottom-left\'}">\
+                </div>\
+                <div class="uk-width-1-3">\
+                    Height (in px)\
+                    <input id="height" value="{{height}}" type="text" title="Height (in px)" data-uk-tooltip="{pos: \'bottom-left\'}">\
+                </div>\
+                <div class="uk-width-1-3">\
+                    Frame per Second\
+                    <input id="fps" value="{{fps}}" type="text" title="Frame per second" data-uk-tooltip="{pos: \'bottom-left\'}">\
+                </div>\
             </div>\
         </div>\
         <div class="uk-form-row">\
             <label class="uk-form-label" for="lastFavorite_str">Dates</label>\
-            <div class="uk-form-controls">\
-                &nbsp;Last Favorite&nbsp;<input id="lastFavorite_str" class="uk-width-1-6" type="text" disabled="true" value="{{lastFavorite_str}}">\
-                &nbsp;Last Tagged&nbsp;<input id="lastTagged_str" class="uk-width-1-6" type="text" disabled="true" value="{{lastTagged_str}}">\
-                &nbsp;Last Seen&nbsp;<input id="lastSeen_str" class="uk-width-1-6" type="text" disabled="true" value="{{lastSeen_str}}">\
-                &nbsp;Last To Watch&nbsp;<input id="lastToWatch_str" class="uk-width-1-6" type="text" disabled="true" value="{{lastToWatch_str}}">\
+            <div class="uk-form-controls uk-grid has-labels">\
+                <div class="uk-width-1-4">\
+                    Last Favorite\
+                    <input id="lastFavorite_str" class="uk-width-1-6" type="text" disabled value="{{lastFavorite_str}}">\
+                </div>\
+                <div class="uk-width-1-4">\
+                    Last Tagged\
+                    <input id="lastTagged_str" class="uk-width-1-6" type="text" disabled value="{{lastTagged_str}}">\
+                </div>\
+                <div class="uk-width-1-4">\
+                    Last Seen (watched)\
+                    <input id="lastSeen_str" class="uk-width-1-6" type="text" disabled value="{{lastSeen_str}}">\
+                </div>\
+                <div class="uk-width-1-4">\
+                    Last Display\
+                    <input id="lastToWatch_str" class="uk-width-1-6" type="text" disabled value="{{lastDisplay_str}}">\
+                </div>\
             </div>\
         </div>\
         <div class="uk-form-row">\
             <label class="uk-form-label" for="lastFavorite">Counters</label>\
-            <div class="uk-form-controls">\
-                &nbsp;Favorites&nbsp;<input id="lastFavorite" class="uk-width-1-4" type="text" title="Type enter to save" data-uk-tooltip="{pos: \'right\'}" value="{{favorite}}">\
-                &nbsp;Seen&nbsp;<input id="seen" class="uk-width-1-4" type="text" title="Type enter to save" data-uk-tooltip="{pos: \'right\'}" value="{{seen}}">\
-                &nbsp;Displayed&nbsp;<input id="display" class="uk-width-1-4" type="text" title="Type enter to save" data-uk-tooltip="{pos: \'right\'}" value="{{display}}">\
+            <div class="uk-form-controls uk-grid has-labels">\
+                <div class="uk-width-1-4">\
+                    # of times starred\
+                    <input id="favorite" type="text" disabled value="{{favorite}}">\
+                </div>\
+                <div class="uk-width-1-4">\
+                    # of times Seen (watched)\
+                    <input id="seen" type="text" disabled value="{{seen}}">\
+                </div>\
+                <div class="uk-width-1-4">\
+                    # of times Displayed\
+                    <input id="displayed" type="text" disabled value="{{display}}">\
+                </div>\
+                <div class="uk-width-1-4">\
+                    Last To Watch\
+                    <input id="lastToWatch_str" type="text" disabled value="{{lastToWatch_str}}">\
+                </div>\
+            </div>\
+        </div>\
+        <div class="uk-form-row" id="analysis-row">\
+            <label class="uk-form-label" for="lastFavorite">Analysis Results</label>\
+            <div class="uk-form-controls uk-grid has-labels">\
+                <div class="uk-width-1-3">\
+                    Average Face Ratio\
+                    <input id="average-face-ratio" type="text" disabled value="{{averageFaceRatio}}">\
+                </div>\
+                <div class="uk-width-1-3">\
+                    Face Time (frames)\
+                    <input id="face-time" type="text" disabled value="{{faceTime}}">\
+                </div>\
+                <div class="uk-width-1-3">\
+                    Face Time (proportion)\
+                    <input id="face-prop" type="text" disabled value="{{faceTimeProp}}">\
+                </div>\
             </div>\
         </div>\
         <div class="uk-form-row">\
             <label class="uk-form-label" for="ss-frame-rate">Thumbnail</label>\
             <div class="uk-form-controls uk-grid">\
                 <input id="ss-frame-rate" value="1/60" type="text" class="uk-width-1-4" style="margin-right: 10px" title="Number of thumbnails / Time period" data-uk-tooltip="{pos: \'bottom-left\'}" />&nbsp;\
-                <input id="ss-width" value="496" type="text" class="uk-width-1-4" style="margin-right: 10px" title="Thumbnails Width (in px)" data-uk-tooltip="{pos: \'bottom-left\'}" />&nbsp;\
-                <input id="ss-height" value="278" type="text" class="uk-width-1-4" style="margin-right: 10px" title="Thumbnails Height (in px)" data-uk-tooltip="{pos: \'bottom-left\'}" />&nbsp;\
+                <input id="ss-width" value="1280" type="text" class="uk-width-1-4" style="margin-right: 10px" title="Thumbnails Width (in px)" data-uk-tooltip="{pos: \'bottom-left\'}" />&nbsp;\
+                <input id="ss-height" value="720" type="text" class="uk-width-1-4" style="margin-right: 10px" title="Thumbnails Height (in px)" data-uk-tooltip="{pos: \'bottom-left\'}" />&nbsp;\
                 <a id="generate-thumbnails" class="uk-button uk-width-1-5" style="float: right">Regenerate</a>\
                 <div class="uk-grid uk-width-1-1" id="thumbnail">\
                 </div>\
@@ -160,7 +212,14 @@ $(function () {
                 self.analyzer = new Analyzer(
                     self.videoId,
                     self.$view.find('#video-analyze-result'),
-                    self.video.snapshots[self.video.thumbnail],
+                    {
+                        thumbnail: self.video.snapshots[self.video.thumbnail],
+                        force: self.video && self.video.analysis && (
+                            self.video.analysis.faceTime ||
+                            self.video.analysis.faceTimeProp ||
+                            self.video.analysis.averageFaceRatio
+                        )
+                    },
                     {
                         onAddTag: function (value) {
                             self.onAddTag('Tag', value);
@@ -212,7 +271,6 @@ $(function () {
         }
 
         self.generateThumbnails = function () {
-            debugger;
             $.ajax({
                 url: '/api/video/thumbnails/regenerate',
                 type: 'post',
@@ -708,17 +766,22 @@ $(function () {
         }
         self.renderView = function () {
             document.title = self.video.name;
+            var analysis = self.video.analysis;
             self.$view.html(render(self.template, Object.assign({}, self.video, {
                 title: self.video.name,
                 thumbnail: self.video.snapshots[self.video.thumbnail],
-                url: self.video.url,
-                name: self.video.name,
-                description: self.video.description,
-                width: self.video.width,
-                height: self.video.height,
-                fps: self.video.fps,
-                favorite: self.video.favorite
+                faceTime: analysis && analysis.faceTime ? analysis.faceTime : '?',
+                averageFaceRatio: analysis && analysis.averageFaceRatio ? analysis.averageFaceRatio.toString().slice(0, 7) + ' %' : '?',
+                faceTimeProp: analysis && analysis.faceTimeProp ? analysis.faceTimeProp.toString().slice(0, 7) + ' %' : '?',
             })));
+            if (analysis && (analysis.faceTime || analysis.faceTimeProp || analysis.averageFaceRatio)) {
+                self.$view.find('#analysis-row').removeClass('hidden');
+                self.$view.find('#analyze').html('<i class="uk-icon-check-square-o"></i>&nbsp;Re-Analyze');
+            }
+            else {
+                self.$view.find('#video-title .uk-icon-cogs').addClass('hidden');
+                self.$view.find('#analysis-row').addClass('hidden');
+            }
             self.renderThumbnails(self.video, function () {
                 $('#vid-details #loading-info').remove();
                 if (self.video.toWatch)

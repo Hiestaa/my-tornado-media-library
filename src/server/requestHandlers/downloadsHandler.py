@@ -16,6 +16,7 @@ from tornado.web import RequestHandler, HTTPError, asynchronous
 from server import model, memory
 from tools.utils import sizeFormat
 from tools.analyzer import MinividGenerator
+from tools.workspace import Workspace
 from conf import Conf
 
 
@@ -84,6 +85,8 @@ class DownloadsHandler(RequestHandler):
             'f4b': 'video/x-flv'
         }
 
+        self._workspace = Workspace()
+
     def downloadAlbum(self, albumId, picNum):
         """
         Writes back to the client the picture number `picNum` of the album given by id.
@@ -126,6 +129,8 @@ class DownloadsHandler(RequestHandler):
         logging.debug("Downloading snapshot #%s on video %s" % (ssNumber, videoId))
         ssNumber = int(ssNumber) + 1  # base 1
         video = model.getService('video').getById(videoId)
+        if video is None:
+            raise HTTPError(404, 'Video Not Found: ' + videoId)
         video['snapshotsFolder'] = '%s%s' % (
             Conf['data']['videos']['rootFolder'],
             video['snapshotsFolder'])
@@ -165,8 +170,8 @@ class DownloadsHandler(RequestHandler):
         video['snapshotsFolder'] = '%s%s' % (
             Conf['data']['videos']['rootFolder'],
             video['snapshotsFolder'])
-        ssFolder = MinividGenerator.buildMinividFolderPath(video['snapshotsFolder'])
-        # ensuretrailing slash
+        ssFolder = MinividGenerator.buildMinividFolderPath(self._workspace, video['snapshotsFolder'])
+        # ensure trailing slash
         if ssFolder[-1] != os.sep:
             ssFolder = ssFolder + os.sep
         # compute snapshot path

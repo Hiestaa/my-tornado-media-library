@@ -15,6 +15,7 @@ from datetime import datetime
 from conf import Conf
 from tools.utils import extends, getDuration
 from tools.analyzer import MinividGenerator
+from tools.workspace import Workspace
 from server import model
 
 
@@ -66,10 +67,11 @@ class SegmentCandidateGenerator(object):
         self.minSegmentLength = minSegmentLength
         self.maxSegmentLength = maxSegmentLength
         self.hardLimits = hardLimits
+        self._workspace = Workspace()
 
     def _getAnalysisData(self, video):
         snapshotsFolder = '%s%s' % (BASE_PATH, video['snapshotsFolder'])
-        minividFolder = MinividGenerator.buildMinividFolderPath(snapshotsFolder)
+        minividFolder = MinividGenerator.buildMinividFolderPath(self._workspace, snapshotsFolder)
         jsonPath = os.path.join(minividFolder, 'analysis_gcv_pp.json')
 
         try:
@@ -80,7 +82,7 @@ class SegmentCandidateGenerator(object):
 
     def _getFrameDelay(self,  video):
         snapshotsFolder = '%s%s' % (BASE_PATH, video['snapshotsFolder'])
-        minividFolder = MinividGenerator.buildMinividFolderPath(snapshotsFolder)
+        minividFolder = MinividGenerator.buildMinividFolderPath(self._workspace, snapshotsFolder)
         fps = MinividGenerator.getMinividFPS(minividFolder)
         fdelay = 1.0 / fps
         return fdelay
@@ -236,7 +238,7 @@ class SegmentCandidateGenerator(object):
 
     def _buildSegment(self, video, fdelay, data, start, end, nbPerformers):
         snapshotsFolder = '%s%s' % (BASE_PATH, video['snapshotsFolder'])
-        minividFolder = MinividGenerator.buildMinividFolderPath(snapshotsFolder)
+        minividFolder = MinividGenerator.buildMinividFolderPath(self._workspace, snapshotsFolder)
         fps = MinividGenerator.getMinividFPS(minividFolder)
         fdelay = 1.0 / fps
 

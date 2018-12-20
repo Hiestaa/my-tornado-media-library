@@ -95,6 +95,9 @@ $(function () {
         if (type == 'fps') {
             return _gradient(value, 20, 60, true);
         }
+        if (type == 'faceTimeProp') {
+            return _gradient(value, 30, 80, true);
+        }
     };
 
 

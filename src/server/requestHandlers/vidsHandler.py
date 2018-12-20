@@ -352,7 +352,7 @@ try to enable the `playVideosVLC` option and fill in the VLC binary path to fix 
             logging.info("Renaming from '" + oldName + '" to "' + newName + '"')
             os.rename(oldName, newName)
         model.getService('video').increment(videoId, 'nbSnapshots', -1)
-        if pos <= video['thumbnail']:
+        if video['thumbnail'] is not None and pos <= video['thumbnail']:
             model.getService('video').increment(videoId, 'thumbnail', -1)
         self.write(json.dumps(
             populateMissingData(
@@ -405,7 +405,7 @@ try to enable the `playVideosVLC` option and fill in the VLC binary path to fix 
             logging.warning("Unable to remove thumbnails folder: %s. \
 Attempting to generate thumbnails anyways..." % video['snapshotsFolder'])
         try:
-            os.mkdir(video['snapshotsFolder'])
+            os.makedirs(video['snapshotsFolder'])
         except:
             logging.warning("Unable to create thumbnails folder: %s. \
 Attempting to generate thumbnails anyways..." % video['snapshotsFolder'])
@@ -420,7 +420,11 @@ Attempting to generate thumbnails anyways..." % video['snapshotsFolder'])
                 '{ffmpegPath} -i "{videoPath}" -f image2 -vf fps=fps={frameRate} -s {width}x{height} "{snapFolder}\\thumb%03d.png"'.format(**data),
                 shell= True)
             logging.warning("Thumbnails re-generation complete! Done in %.3fs." % (time.time() - start_t))
-            thumbnails = os.listdir(video['snapshotsFolder'])
+            try:
+                thumbnails = os.listdir(video['snapshotsFolder'])
+            except Exception as e:
+                logging.warning("Couldn't read thumbnails in folder: %s" % (video['snapshotsFolder']))
+                thumbnails = []
             model.getService('video').set(videoId, 'nbSnapshots', len(thumbnails))
 
         worker = Thread(target=asyncThumbGen, name=videoId, args=[data])

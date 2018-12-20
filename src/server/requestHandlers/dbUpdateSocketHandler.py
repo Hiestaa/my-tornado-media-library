@@ -18,7 +18,7 @@ MEMKEY = 'db-updater'
 class DbUpdateSocketHandler(WebSocketHandler):
 
     def callback(self, progress):
-        # executed on the `GCVAnalyzer` thread, does nothing but scheduling a callback
+        # executed on the `Walker` thread, does nothing but scheduling a callback
         # to be executed on the main thread by the IOLoop whenever possible
         # would we be able to push data on the existing socket from the separate thread directly?
         IOLoop.instance().add_callback(lambda: self.on_progress(progress))

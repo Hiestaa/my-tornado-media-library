@@ -72,3 +72,8 @@
     opacity: 0.9;
     z-index: 100;
 }
+
+.uk-modal-dialog .uk-modal-header .uk-panel-badge {
+    top: 15px;
+    right: 35px;
+}

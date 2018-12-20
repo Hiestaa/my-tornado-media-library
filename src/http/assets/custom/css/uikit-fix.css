@@ -182,12 +182,14 @@ ul.uk-nav-sub li:hover {
 }
 
 .uk-dropdown {
-    z-index: 100;
+    z-index: 10000;
 }
 
 .uk-grid > * > :last-child {
-  margin-bottom: 40px;
+  /*margin-bottom: 40px;*/
 }
+
+
 
 @media (min-width: 1600px) {
     .uk-container {

@@ -3,13 +3,16 @@
 from __future__ import unicode_literals
 
 import json
+import time
 import logging
 
 from tornado.websocket import WebSocketHandler
 from tornado.ioloop import IOLoop
 
-from tools.analyzer import GCVAnalyzer
+from tools.analyzer import Analyzer
 from server import memory, model
+
+MEMKEY = 'video-analyzer';
 
 class AnalyzeSocketHandler(WebSocketHandler):
     """
@@ -19,55 +22,88 @@ class AnalyzeSocketHandler(WebSocketHandler):
     (where this socket is used notably), if should be made more generic
     as we can only have a small number of simulateous websockets on the same page.
     """
+    def callback(self, videoId, result):
+        # executed on the `Analyzer` thread, does nothing but scheduling a callback
+        # to be executed on the main thread by the IOLoop whenever possible
+        # would we be able to push data on the existing socket from the separate thread directly?
+        IOLoop.instance().add_callback(lambda: self.on_analysis_progress(videoId, result))
 
-    def gcv(self, videoId, force=False, **kwargs):
+    def start(self, videoId, force=False, **kwargs):
         """
-        Action: gcv
+        Action: analysis
         Parameters: videoId, force
         Begin the analyze the video by extracting every other frame and submitting
         them to google cloud vision. The process will be performed on a separate thread.
         The process is cached and won't be performed more than once, unless `force`
         is specified and set to `True`.
         """
-        def callback(videoId, result):
-            # executed on the `GCVAnalyzer` thread, does nothing but scheduling a callback
-            # to be executed on the main thread by the IOLoop whenever possible
-            # would we be able to push data on the existing socket from the separate thread directly?
-            IOLoop.instance().add_callback(lambda: self.on_gcv_progress(videoId, result))
 
         video = model.getService('video').getById(
-            videoId, fields=['snapshotsFolder', 'path', 'analysis', 'name'])
+            videoId, fields=['snapshotsFolder', 'path', 'analysis', 'name', 'duration'])
 
-        existing_worker = memory.getVal('video-analyzer-gcv')
+        existing_worker = memory.getVal(MEMKEY)
         if existing_worker is not None and existing_worker.isAlive():
-            raise Exception("An analyze is still in progress for video: %s" % video['name'])
+            logging.warn("An analyze is still in progress for video: %s" % video['name'])
+            existing_worker.resubscribe(self.callback)
+            return
 
         logging.info("Starting analysis of video: %s", video['name'])
-        analyzer = GCVAnalyzer(
+        analyzer = Analyzer(
             videoId, video['path'], video['snapshotsFolder'],
-            progressCb=callback, force=force)
+            progressCb=self.callback, force=force, annotator='dfl-dlib',
+            videoDuration=video['duration'])
         analyzer.start()
-        memory.setVal('video-analyzer-gcv', analyzer)
+        memory.setVal(MEMKEY, analyzer)
 
-    def on_gcv_progress(self, videoId, data, skipped=False):
+    def on_analysis_progress(self, videoId, data, skipped=False):
         if data.get('finished', False) and not skipped:
             model.getService('video').set(videoId, 'analysis', data['data'])
 
-        self.write_message(json.dumps(data))
+        try:
+            self.write_message(json.dumps(data))
+        except Exception as e:
+            logging.exception(e)
+            # the socket is probably stale, stop receiving update
+            # until a new connection comes in
+            analyzer = memory.getVal(MEMKEY)
+            if analyzer is not None:
+                analyzer.resubscribe(None)
+
+    def stop(self, **kwargs):
+        existing_worker = memory.getVal(MEMKEY)
+        if existing_worker is not None:
+            existing_worker.stop()
+            memory.setVal(MEMKEY, None)
+
+    def cleanup(self, videoId, **kwargs):
+        existing_worker = memory.getVal(MEMKEY)
+        video = model.getService('video').getById(
+            videoId, fields=['snapshotsFolder'])
+
+        if existing_worker is not None:
+            existing_worker.stop()
+            time.sleep(1)
+
+        Analyzer.cleanup(video['snapshotsFolder'])
 
     def open(self):
-        pass
+        analyzer = memory.getVal(MEMKEY)
+        if analyzer and not analyzer.isComplete():
+            logging.info('An analysis is already running, subscribing to status updates')
+            analyzer.resubscribe(self.callback)
 
     def on_message(self, message):
         try:
             message = json.loads(message)
             {
-                'gcv': self.gcv
+                'start': self.start,
+                'stop': self.stop,
+                'clean-up': self.cleanup
             }[message['action']](**message)
         except Exception as e:
             logging.error("Error while executig action for message %s", message)
             logging.exception(e)
-            self.on_gcv_progress(None, {'error': repr(e)})
+            self.on_analysis_progress(None, {'error': repr(e)})
 
     def on_close(self):
         pass

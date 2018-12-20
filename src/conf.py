@@ -24,32 +24,38 @@ Conf = {
             # note: this will only be used if forceStart is True and
             # if a mongoDB server is NOT already listening on the
             # defined host and port
-            'rootFolder': ".\\_internal\\bin\\MongoDB\\bin\\",  # trailing '\' is required
-            'dataFolder': ".\\data\\db", #"%s\\data\\db\\" % os.getcwd(),
+            'rootFolder': "%s\\_internal\\bin\\MongoDB\\bin\\" % os.getcwd(),  # trailing '\' is required
+            'dataFolder': "%s\\data\\db" % os.getcwd(), #"%s\\data\\db\\" % os.getcwd(),
             'dbName': 'vice',
-            'dumpFolder': ".\\dumps\\",
+            'dumpFolder': "%s\\dumps\\" % os.getcwd(),
             'dumpDelay': 60 * 60 * 24  # a day
         },
         'ffmpeg': {
-            'exePath': '.\\_internal\\bin\\ffmpeg\\ffmpeg.exe',
-            'snapshotDimensions': (640, 360),
+            'exePath': '%s\\_internal\\bin\\ffmpeg\\ffmpeg.exe' % os.getcwd(),
+            'snapshotDimensions': (1280, 720),
             # per recommendation on https://cloud.google.com/vision/docs/supported-files
             'minividDimension': (800, 450),
             'minividFrameRate': '24/1',
             'minividPostProcContext': 10,
-            'frameRate': '1/60',
-            'probePath': '.\\_internal\\bin\\ffmpeg\\ffprobe.exe',
-            'compileFolder': '.\\workspace\\compilations'
+            'frameRate': '1/30',
+            'probePath': '%s\\_internal\\bin\\ffmpeg\\ffprobe.exe' % os.getcwd(),
+            'compileFolder': '%s\\workspace\\compilations' % os.getcwd()
         },
         'videos': {
             'insertOnCVError': False,
-            'rootFolder': '.\\data\\videos\\',
+            'rootFolder': '%s\\data\\videos\\' % os.getcwd(),
             'allowedTypes': ['avi', 'mkv', 'flv', 'mpg', 'mp4', 'wmv', 'mov', 'm4v', 'm4a', '3gp'],
             'displayPerPage': 9,
         },
         'albums': {
-            'rootFolder': '.\\data\\photos\\',
+            'rootFolder': '%s\\data\\photos\\' % os.getcwd(),
             'allowedTypes': ['png', 'jpg', 'jpeg']
+        },
+        # where temporary files are gonna be stored - to facilitate mass clean up
+        'workspace': {
+            'path': '%s\\workspace\\' % os.getcwd(),
+            'usageWarning': 800,  # in GB
+            'usageLimit': 1000   # in GB
         }
     },
     'server': {
@@ -62,13 +68,8 @@ Conf = {
             'minifyOnDebug': False
         },
         'playVideosVLC': True,
-        'vlcPath': ".\\_internal\\bin\\VLC\\vlc.exe",
+        'vlcPath': "%s\\_internal\\bin\\VLC\\vlc.exe" % os.getcwd(),
         'templatePath': 'src/http/templates/',
         'assetsPath': 'src/http/assets/'
-    },
-    'client': {
-        'dbUpdateStatus': {
-            'itemsOnPage': 20
-        }
     }
 }

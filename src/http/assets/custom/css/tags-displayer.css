@@ -39,6 +39,9 @@
 
 #tags-displayer table caption {
     padding-right: 25px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-width: 375px;
 }
 
 #tags-displayer i.close {

@@ -45,6 +45,23 @@ messages and -vvv enable DEBUG messages. Ignored if started using daemon.",
                         help="Remove ALL logging messages from the console.")
     return parser.parse_args()
 
+def disable_downloader_logs(handler):
+    if handler.__class__.__name__ in ['DownloadsHandler', 'AssetsHandler']:
+        return
+
+    if handler.get_status() < 400:
+        log_method = logging.info
+    elif handler.get_status() < 500:
+        log_method = logging.warning
+    else:
+        log_method = logging.error
+    request_time = 1000.0 * handler.request.request_time()
+    log_method(
+        "%d %s %.2fms",
+        handler.get_status(),
+        handler._request_summary(),
+        request_time,
+    )
 
 class Server(Thread):
     """
@@ -74,6 +91,16 @@ class Server(Thread):
         ioloop.add_callback(lambda x: x.stop(), ioloop)
         logging.info("Requested tornado server to stop.")
 
+    def log(self, handler):
+        import ipdb; ipdb.set_trace()
+        request_time = 1000.0 * handler.request.request_time()
+        logging.info(
+            "%d %s %.2fms",
+            handler.get_status(),
+            handler._request_summary(),
+            request_time,
+        )
+
     """
     Run the server. This function will be called when the server's daemon
     start, but can also be called on the current process if server is not
@@ -96,7 +123,8 @@ class Server(Thread):
             # and some other useful features on debug. See:
             # http://www.tornadoweb.org/en/stable/guide/running.html#debug-mode
             # http://www.tornadoweb.org/en/stable/guide/running.html#debug-mode
-            "debug": Conf['state'] == 'DEBUG'
+            "debug": Conf['state'] == 'DEBUG',
+            "log_function": disable_downloader_logs
         }
         server_routes = [
             (r"/action/db/update/?", DbUpdateHandler),

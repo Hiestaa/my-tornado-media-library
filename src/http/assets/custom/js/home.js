@@ -1,13 +1,16 @@
-function findKeyframesRule(rule) {
-  var ss = document.styleSheets;
-  for (var i = 0; i < ss.length; ++i) {
-    for (var j = 0; j < ss[i].cssRules.length; ++j) {
-      if (ss[i].cssRules[j].type == window.CSSRule.WEBKIT_KEYFRAMES_RULE &&
-      ss[i].cssRules[j].name == rule) {
-        return ss[i].cssRules[j]; }
+function findKeyframesRule(ruleName) {
+    var ss = document.styleSheets;
+
+    for (var i = 0; i < ss.length; ++i) {
+        if (!ss[i].href || !ss[i].href.endsWith('home.css')) { continue; }
+        for (var j = ss[i].cssRules.length - 1; j >= 0 ; j--) {
+            var rule = ss[i].cssRules[j];
+            if (rule.type == window.CSSRule.KEYFRAMES_RULE && rule.name == ruleName) {
+                return rule;
+            }
+          }
     }
-  }
-  return null;
+    return null;
 }
 
 $(function () {
@@ -26,11 +29,14 @@ $(function () {
         self.onAnimationEnd = function () {
             self.iter += 1
             var keyframes = findKeyframesRule('scrolling');
-            keyframes.deleteRule('0%');
-            keyframes.deleteRule('100%');
-            console.log("Translate from " + (self.iter * 500) + 'px to ' + ((self.iter + 1) * 500) + 'px')
-            keyframes.appendRule('0% { transform: translate(0, -' + (self.iter * 500) + 'px); }');
-            keyframes.appendRule('100% { transform: translate(0, -' + ((self.iter + 1) * 500) + 'px); }');
+            // FIXME: figure out why this is null
+            if (keyframes) {
+                keyframes.deleteRule('0%');
+                keyframes.deleteRule('100%');
+                console.log("Translate from " + (self.iter * 500) + 'px to ' + ((self.iter + 1) * 500) + 'px')
+                keyframes.appendRule('0% { transform: translate(0, -' + (self.iter * 500) + 'px); }');
+                keyframes.appendRule('100% { transform: translate(0, -' + ((self.iter + 1) * 500) + 'px); }');
+            }
 
             // restart the animation
             var vidContainerInner = document.getElementById('vid-container-inner');
@@ -87,7 +93,8 @@ $(function () {
                 for (var i = 0; i < vids.length; i++) {
                     self.vids.push(new VidSnap('#vid-container #vid-container-inner', vids[i], {
                         width: 1,
-                        append: true
+                        append: true,
+                        revealFullPageOverlay: false,
                         // expandOnHover: i == vids.length - 1 ? 'bottom left' : 'top left'
                     }));
                 };

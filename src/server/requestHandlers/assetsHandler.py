@@ -114,16 +114,16 @@ class AssetsHandler(RequestHandler):
                 raise HTTPError(404, 'Not Found')
         # now send the minified version of the requested file
         if filepath.endswith('.min.js'):
-            logging.info("Sending Minified JS file: %s" % filepath)
+            logging.debug("Sending Minified JS file: %s" % filepath)
             self.set_header("Content-Type", "application/js")
         elif filepath.endswith('.js'):
-            logging.info("Sending NON-Minified JS file: %s" % filepath)
+            logging.debug("Sending NON-Minified JS file: %s" % filepath)
             self.set_header("Content-Type", "application/js")
         elif filepath.endswith('.min.css'):
-            logging.info("Sending Minified CSS file: %s" % filepath)
+            logging.debug("Sending Minified CSS file: %s" % filepath)
             self.set_header("Content-Type", "text/css")
         elif filepath.endswith('.css'):
-            logging.info("Sending NON-Minified CSS file: %s" % filepath)
+            logging.debug("Sending NON-Minified CSS file: %s" % filepath)
             self.set_header("Content-Type", "text/css")
         elif filepath.endswith('.woff'):
             self.set_header('Vary', "Accept-Encoding")
@@ -139,7 +139,7 @@ class AssetsHandler(RequestHandler):
         elif filepath.endswith('.otf'):
             self.set_header('Content-Type', 'application/x-font-opentype')
         else:
-            logging.info("Sending file: %s" % filepath)
+            logging.debug("Sending file: %s" % filepath)
         if filepath.endswith('.woff') or filepath.endswith('.eot') or \
                 filepath.endswith('.ttf') or filepath.endswith('.svg') or \
                 filepath.endswith('.otf'):
