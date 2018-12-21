@@ -17,6 +17,11 @@ $(function () {
         };
         return res;
     }
+    /*
+     Preload the list of pictures, calls back when the full batch is loaded
+     This might fail if trying to load a very large batches of pictures,
+     or too many batches at once. Use `preloadPictureBatched`.
+     */
     function preloadPictures(pictureUrls, callback) {
         var i,
             j,
@@ -49,6 +54,49 @@ $(function () {
             } (new Image(), pictureUrls[i]));
         };
     }
+
+    var MAX_BATCH_SIZE = 5;
+    var preloadWorkQueue = [];  // list of {url, callback} objects
+    var preloadCurrentBatch = {};   // mapping url => callback
+    /*
+     * Preload the given picture, calls back when it is ready
+     * Will ensure not to have more than the maximum batch size pending requests at a given time
+     * Beware this takes a single picture as parameter, unlike `preloadPictures` which takes a batch
+     */
+    function preloadPictureBatched(pictureUrl, callback) {
+        var preloadNext = function () {
+            var done = function (job, image) {
+                delete preloadCurrentBatch[job.url];
+                preloadNext();
+                job.callback(image);
+            }
+            if (Object.keys(preloadCurrentBatch).length >= MAX_BATCH_SIZE) { return; }
+            if (preloadWorkQueue.length === 0) { return; }
+
+            var job = preloadWorkQueue.shift(0);
+            preloadCurrentBatch[job.url] = job.callback;
+            var img = new Image();
+            img.onload = function () {
+                done(job, this);
+            };
+            img.onerror = function () {
+                console.log('Unable to load img: ' + job.url, this,  arguments);
+                // done(job);
+            };
+            img.onabort = function () {
+                console.log('Aborted loading of img: ' + job.url, this,  arguments);
+                // done(job);
+            };
+            img.src = job.url;
+
+            preloadNext();
+        }
+
+        preloadWorkQueue.push({url: pictureUrl, callback: callback});
+
+        preloadNext();
+    }
+
     function spinLoading(stop) {
         if (stop)
             $('body > #loading-overlay').css('display', 'none');
@@ -121,6 +169,7 @@ $(function () {
 
     window.render = render;
     window.preloadPictures = preloadPictures;
+    window.preloadPictureBatched = preloadPictureBatched;
     window.spinLoading = spinLoading;
     window.isPositiveInteger = isPositiveInteger;
     window.colorMapping = colorMapping;

@@ -20,6 +20,7 @@ $(function () {
                         <ul class="uk-nav uk-nav-dropdown">\
                             <li class="uk-nav-header">Additional Actions</li>\
                             <li><a id="open-folder">Open Folder</a></li>\
+                            <li><a id="view-analysis" class="hidden">View Analysis</a></li>\
                             <li><a id="analyze">Analyze</a></li>\
                         </ul>\
                     </div>\
@@ -204,7 +205,7 @@ $(function () {
 
         self.analyzer = null;
 
-        self.beginAnalysis = function() {
+        self._doAnalysis = function(force) {
             if (self.analyzer) {
                 return self.analyzer.reopenVisualizer();
             }
@@ -214,11 +215,7 @@ $(function () {
                     self.$view.find('#video-analyze-result'),
                     {
                         thumbnail: self.video.snapshots[self.video.thumbnail],
-                        force: self.video && self.video.analysis && (
-                            self.video.analysis.faceTime ||
-                            self.video.analysis.faceTimeProp ||
-                            self.video.analysis.averageFaceRatio
-                        )
+                        force: force
                     },
                     {
                         onAddTag: function (value) {
@@ -226,6 +223,18 @@ $(function () {
                         }
                     });
             }
+        }
+
+        self.doAnalysis = function() {
+            self._doAnalysis(self.video && self.video.analysis && (
+                self.video.analysis.faceTime ||
+                self.video.analysis.faceTimeProp ||
+                self.video.analysis.averageFaceRatio
+            ));
+        }
+
+        self.viewAnalysis = function () {
+            self._doAnalysis(false);
         }
 
         self.generationProgression = function () {
@@ -777,9 +786,11 @@ $(function () {
             if (analysis && (analysis.faceTime || analysis.faceTimeProp || analysis.averageFaceRatio)) {
                 self.$view.find('#analysis-row').removeClass('hidden');
                 self.$view.find('#analyze').html('<i class="uk-icon-check-square-o"></i>&nbsp;Re-Analyze');
+                self.$view.find('#view-analysis').removeClass('hidden');
             }
             else {
                 self.$view.find('#video-title .uk-icon-cogs').addClass('hidden');
+                self.$view.find('#view-analysis').addClass('hidden');
                 self.$view.find('#analysis-row').addClass('hidden');
             }
             self.renderThumbnails(self.video, function () {
@@ -870,7 +881,7 @@ $(function () {
 
         self.events = function () {
             preloadPictures(['/assets/custom/img/spinner.gif']);
-            self.$view.find('.vid-player').off('click.playVid').on('click.playVid', self.playVid);
+            self.$view.find('.vid-player').off('click').on('click', self.playVid);
             $('body').off().keydown(function (e) {
                 switch (e.keyCode) {
                     case 46:
@@ -889,7 +900,8 @@ $(function () {
             self.$view.find('#vid-details input#ss-height').off().blur(self.onEditSSHeight)
             self.$view.find('#vid-details input#ss-width').off().blur(self.onEditSSWidth)
             self.$view.find('#open-folder').off().click(self.openContainingFolder);
-            self.$view.find('#analyze').off().click(self.beginAnalysis);
+            self.$view.find('#analyze').off().click(self.doAnalysis);
+            self.$view.find('#view-analysis').off().click(self.viewAnalysis);
             self.$view.find('#delete-video').off().click(self.showDeleteModal);
         };
 

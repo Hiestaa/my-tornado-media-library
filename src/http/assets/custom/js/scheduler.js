@@ -32,8 +32,10 @@ $(function() {
     *               * executionDelay is the delay incurred due to an unprepared execution
     *                   It does not account for a delay between preparation and execution due to scheduling
     */
-    function Step(id, action, data, visualizer, callbacks) {
+    function Step(id, action, data, visualizer, callbacks, index) {
         var self = this;
+
+        self.index = index;
 
         self._id = id;
         self._action = action;
@@ -41,11 +43,11 @@ $(function() {
 
         self._executed = false;
         self._triggerSuccessor = false;
+        self._onSuccessorTriggered = null;
         self._reversed = false;
         self._ready = false;
 
         self._preparedData = null;
-        self._onExecutionDoneCb = null;
         self._executeCb = null;
         self._successorStep = null;
         self._predecessorStep = null;
@@ -55,6 +57,7 @@ $(function() {
         self._preparators = self._visualizer.getActionPreparators();
         self._executors = self._visualizer.getActionExecutors();
 
+        // store time
         self._startPreparation = null;
         self._preparationDuration = null;
         self._startExecution = null;
@@ -68,8 +71,24 @@ $(function() {
 
         // called as soon as the object is built
         self.prepare = function () {
+            if (self.isPreparing() || self.isReady()) { return; }
             self._startPreparation = Date.now()
-            self._preparators[action](self._data, self._onReady);
+            self._preparators[action](Object.assign({}, self._data), self._onReady);
+        }
+
+        self.isPreparing = function () { return self._startPreparation !== null; }
+
+        self.isReady = function () { return self._ready; }
+
+        self.unprepare = function () {
+            self._startPreparation = null;
+            self._preparationDuration = null;
+            self._preparedData = null;
+            self._ready = false;
+            self._executed = false;
+            self._executeCb = null;
+            self._triggerSuccessor = false;
+            self._onSuccessorTriggered = null;
         }
 
         // called when the prepared data is ready
@@ -95,6 +114,7 @@ $(function() {
                     // if execution ever needs to be asynchroneous, this can be passed as a callback
                     self.onExecuted();
                 }
+                self.prepare();
             }
             else {
                 self._startRealExecution = self._startExecution;
@@ -124,7 +144,7 @@ $(function() {
             self._executed = true;
             self._executeCb = null;
 
-            self._callbacks.onExecuted({
+            self._callbacks.onExecuted(self, {
                 id: self._id,
                 executionDuration,
                 executionDelay,
@@ -185,8 +205,6 @@ $(function() {
             [self._successorStep, self._predecessorStep] = [self._predecessorStep, self._successorStep];
             self._reversed = true;
         }
-
-        self.prepare();
     }
 
     /*
@@ -213,22 +231,45 @@ $(function() {
         self._visTimeout = null;
         self._lockReversed = false;
 
+        // no more than (twice) this number of steps will be kept prepared in memory at a given time
+        // whenever execting a step, we're gonna ensure at least that many steps are prepared
+        // coming down the chain
+        // whenever a step has finished executing, unprepare all prepared steps except a window of
+        // four times this size around the step that finished executing (to avoid overlaps)
+        var MAX_SIMULTANEOUS_PREPARED_STEP = 200;
+
         self.reset = function () {
             self._steps = [];
             self._lastExecutedStep = null;
         }
 
-        self._onStepExecutionReport = function (report) {
+        self._onStepExecutionReport = function (step, report) {
             var {executionDuration, executionDelay, preparationDuration, triggerDelay} = report;
             if (executionDuration + executionDelay > self._delay) {
                 self._visualizer.notifyOvertime(executionDuration + executionDelay);
             }
-            else if (triggerDelay  > self._delay) {
-                self._visualizer.notifyOvertime(triggerDelay );
+            else if (triggerDelay > self._delay) {
+                self._visualizer.notifyOvertime(triggerDelay);
             }
-            else {
-                self._visualizer.notifyOvertime();
+            var start = step.index - MAX_SIMULTANEOUS_PREPARED_STEP * 2;
+            var stop = step.index + MAX_SIMULTANEOUS_PREPARED_STEP * 2;
+            // before the window
+            for (var i = start; i >= 0; i--) {
+                var wasUnprepared = !self._steps[i].isReady() && !self._steps[i].isPreparing();
+                self._steps[i].unprepare();
+                if (wasUnprepared) {
+                    break;
+                }
             }
+            // after the window
+            for (var i = stop; i < self._steps.length; i++) {
+                var wasUnprepared = !self._steps[i].isReady() && !self._steps[i].isPreparing();
+                self._steps[i].unprepare();
+                if (wasUnprepared) {
+                    break;
+                }
+            }
+
         }
 
         /*
@@ -243,7 +284,7 @@ $(function() {
             // if (self._scheduledStepsById[id]) { return; }
             var step = new Step(id, action, data, self._visualizer, {
                 onExecuted: self._onStepExecutionReport
-            });
+            }, self._steps.length);
             // self._scheduledStepsById[id] = step;
             if (self._steps.length > 0) {
                 // double chained list
@@ -264,43 +305,56 @@ $(function() {
             // default to true is weird, but makes things a bit easier to make recurrent scheduling work
             if (schedule === undefined) { schedule = true; }
 
-
-            // if the last executed step has no successor, we'll never move forward or backward and
-            // thus we'll never put the state in the reversed state the user ask.
-            // So when pressing 'backward' at the end of the play, we'll never go one step back
-            // Ditto when pressing 'forward' at the beginning of the play (in reverse lock), we'll never go one step back
-            if (self._lastExecutedStep !== null && !self._lastExecutedStep.hasSuccessor()) {
-                if ((reverse && !self._lastExecutedStep._reversed) ||
-                    (!reverse && self._lastExecutedStep._reversed)) {
-                    self._lastExecutedStep.reverse();
-                    doneReverse = true;
+            const doIt = function() {
+                // if the last executed step has no successor, we'll never move forward or backward and
+                // thus we'll never put the state in the reversed state the user ask.
+                // So when pressing 'backward' at the end of the play, we'll never go one step back
+                // Ditto when pressing 'forward' at the beginning of the play (in reverse lock), we'll never go one step back
+                if (self._lastExecutedStep !== null && !self._lastExecutedStep.hasSuccessor()) {
+                    if ((reverse && !self._lastExecutedStep._reversed) ||
+                        (!reverse && self._lastExecutedStep._reversed)) {
+                        self._lastExecutedStep.reverse();
+                        doneReverse = true;
+                    }
                 }
-            }
 
-            // if we already executed a step, trigger the execution of its successor
-            if (self._lastExecutedStep !== null && self._lastExecutedStep.hasSuccessor()) {
-                if ((reverse || self._lockReversed) && !doneReverse) { self._lastExecutedStep.reverse(); }
-                if (self._lastExecutedStep.hasSuccessor()) {  // that may have changed if we reversed the first step
-                    step = self._lastExecutedStep.triggerSuccessor(function () {
-                        // only execute next step a delay *after* the successor has been executed
-                        if (schedule) {
-                            self._visTimeout = setTimeout(self.executeNextStep, self._delay);
-                        }
-                    });
+                // if we already executed a step, trigger the execution of its successor
+                if (self._lastExecutedStep !== null && self._lastExecutedStep.hasSuccessor()) {
+                    if ((reverse || self._lockReversed) && !doneReverse) { self._lastExecutedStep.reverse(); }
+                    if (self._lastExecutedStep.hasSuccessor()) {  // that may have changed if we reversed the first step
+                        step = self._lastExecutedStep.triggerSuccessor(function () {
+                            // only execute next step a delay *after* the successor has been executed
+                            if (schedule) {
+                                self._visTimeout = setTimeout(self.executeNextStep, self._delay);
+                            }
+                        });
+                        self._lastExecutedStep = step;
+                        return step;  // don't schedule next step right away, wait for the triggering of successor
+                    }
+                }
+                // if exists, but does not have a successor at this point, do nothing
+                // otherwise (and if there is any to execute), execute the first of the list
+                else if (self._lastExecutedStep === null && self._steps.length > 0) {
+                    step = self._steps[0];
                     self._lastExecutedStep = step;
-                    return;  // don't schedule next step right away, wait for the triggering of successor
+                    step.execute(Date.now());
                 }
-            }
-            // if exists, but does not have a successor at this point, do nothing
-            // otherwise (and if there is any to execute), execute the first of the list
-            else if (self._lastExecutedStep === null && self._steps.length > 0) {
-                step = self._steps[0];
-                self._lastExecutedStep = step;
-                step.execute(Date.now());
+
+                if (schedule) {
+                    sTimeout = setTimeout(self.executeNextStep, self._delay);
+                }
+                return step;
             }
 
-            if (schedule) {
-                self._visTimeout = setTimeout(self.executeNextStep, self._delay);
+            var step = doIt();
+
+            if (!step) { return; }
+            // prepare all potentially coming steps
+            var start = Math.max(0, step.index - MAX_SIMULTANEOUS_PREPARED_STEP)
+            var end = Math.min(self._steps.length, step.index + MAX_SIMULTANEOUS_PREPARED_STEP)
+
+            for (var i = start; i < end; i++) {
+                self._steps[i].prepare();
             }
         }
 

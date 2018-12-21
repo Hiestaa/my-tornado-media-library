@@ -5,6 +5,7 @@
 * Make visually apparent the fact that a video has been analyzed: add an icon somewhere in the video title and the "Analyze" label making obvious that this has been done already
 * Support forcing re-analysis when it has already been completed. Only generate minivid if needed
 * Fixed thumbnail delete issue when thumbnail was never set
+* Take full control of image loading and memory retention. Images are now drawn on a canvas manually instead of setting the `src` of an `img` tag. This means as long as *we* hold the image in memory, the memory is retained, and the displayed image change when *we* draw it. This also means we need to add a memory freeing procedure. This is managed by the scheduler to pre-load (`prepare` the step) unload (`unprepare` the step) images as we need / won't need them.
 
 ### *Wednesday Dec 19*
 

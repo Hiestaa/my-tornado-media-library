@@ -4,7 +4,7 @@
 }
 
 .hidden {
-    display: none;
+    display: none !important;
 }
 
 input {
@@ -169,16 +169,6 @@ ul.uk-nav-sub li:hover {
     font-size: 12px;
     padding-bottom: 1px;
     padding-top: 1px;
-}
-
-#analyze-modal #board-container {
-    position: relative;
-}
-
-#analyze-modal #board-container #canvas-board {
-    position: absolute;
-    top: 0;
-    left: 0;
 }
 
 .uk-dropdown {

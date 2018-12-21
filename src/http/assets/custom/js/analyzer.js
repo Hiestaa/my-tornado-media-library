@@ -44,7 +44,8 @@ $(function () {
         <p>A visualization of the progress of the analysis will appear below.</p>\
         <div id="board-container">\
             <!-- If the annotations are off, it may be that these dimensions are not matching the ones defined in the config -->\
-            <img class="default-size" width="800" height="450" id="image-board" src="{{thumbnail}}"></img>\
+            <img class="default-size" id="image-board" src="{{thumbnail}}"></img>\
+            <canvas width="800" height="450" id="image-board-canvas"></canvas>\
             <canvas width="800" height="450" id="canvas-board"></canvas>\
             <span class="status row-0 left underline">#<span id="frame"></span></span>\
             <span class="status row-0 right" id="reverse"><i class="uk-icon-history"></i></span>\
@@ -71,6 +72,8 @@ $(function () {
     </div>\
 </div>';
 
+        self._imageCanvas = null;
+        self._imageCanvasCtx = null;
         self.$imageBoard = null;
         self.$detailsBoard = null
         self._canvas = null;
@@ -107,6 +110,8 @@ $(function () {
                 delay: self._initialDelay
             }));
             self.$imageBoard = self.$view.find('#image-board');
+            self._imageCanvas = document.getElementById('image-board-canvas');
+            self._imageCanvasCtx = self._imageCanvas.getContext('2d');
             self.$detailsBoard = self.$view.find('#details-board');
             self._canvas = document.getElementById('canvas-board');
             self._canvasCtx = self._canvas.getContext('2d');
@@ -181,8 +186,9 @@ $(function () {
         self.prepareDisplayFrame = function (data, done) {
             var t = Date.now();
             data.preloadUrl = '/download/minivid/' + self._videoId + '/' + data.frame
-            preloadPictures([data.preloadUrl], function () {
+            preloadPictureBatched(data.preloadUrl, function (image) {
                 data._preloadDuration = Date.now() - t;
+                data.preloadImage = image;
                 done(data);
             })
         }
@@ -214,21 +220,25 @@ $(function () {
             var t = Date.now();
             data.preloadUrl = '/download/minivid/' + self._videoId + '/' + data.frame
             data.loadedWebData = [];
-            preloadPictures([data.preloadUrl], function () {
+            preloadPictureBatched(data.preloadUrl, function (image) {
                 data._preloadDuration = Date.now() - t;
-                self._tryLoad(data.annotation.web || {}, function (loadedWebData) {
-                    data.loadedWebData = loadedWebData;
-                    // if (loadedWebData.length != data.annotation.web.full_matching_images.length) { debugger; }
-                    done(data);
-                })
-            })
+                data.preloadImage = image;
+                done(data);
+                // gcv stuff - don't care anymore?
+                // self._tryLoad(data.annotation.web || {}, function (loadedWebData) {
+                //     data.loadedWebData = loadedWebData;
+                //     // if (loadedWebData.length != data.annotation.web.full_matching_images.length) { debugger; }
+                //     done(data);
+                // })
+            });
         }
 
         self.prepareDisplayAnnotationPP = function (data, done) {
             var t = Date.now();
             data.preloadUrl = '/download/minivid/' + self._videoId + '/' + data.frame
-            preloadPictures([data.preloadUrl], function () {
+            preloadPictureBatched(data.preloadUrl, function (image) {
                 data._preloadDuration = Date.now() - t;
+                data.preloadImage = image;
                 done(data);
             });
         }
@@ -247,7 +257,7 @@ $(function () {
             var msg = "Executing action: displayFrame, frame#" + frame;
             // console.log(msg, data);
             self.$detailsBoard.html(msg);
-            self.$imageBoard.attr('src', data.preloadUrl);
+            self._imageCanvasCtx.drawImage(data.preloadImage, 0, 0);
             self.$frame.text(frame)
         }
 
@@ -496,7 +506,7 @@ $(function () {
                 " for file:" + filename);
             // console.log(msg, annotation);
             self.$detailsBoard.html(msg);
-            self.$imageBoard.attr('src', data.preloadUrl);
+            self._imageCanvasCtx.drawImage(data.preloadImage, 0, 0);
 
             if (annotation.faces) {
                 annotation.faces.map(self._displayFace);
@@ -553,7 +563,7 @@ $(function () {
                 ", file:" + filename);
             // console.log(msg, annotation);
             self.$detailsBoard.html(msg);
-            self.$imageBoard.attr('src', data.preloadUrl);
+            self._imageCanvasCtx.drawImage(data.preloadImage, 0, 0);
 
             if (annotation.faces) {
                 annotation.faces.map(self._displayFace);
@@ -623,6 +633,7 @@ $(function () {
             self.$view.find("#board-container #play").addClass('hidden');
             self.$view.find('#title').text('Analysis in progress...');
             self.$imageBoard.attr('src', self._initialThumbnail);
+            self._imageCanvasCtx.clearRect(0, 0, self._imageCanvas.width, self._imageCanvas.height);
             self.$view.find('#board-container #step-reverse').removeClass('hover');
             self.$frame.text(0)
         }

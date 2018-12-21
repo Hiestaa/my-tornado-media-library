@@ -62,7 +62,7 @@ class Analyzer(Thread):
             * 'init': the data will contain nothing, used to indicate the first progress call of the process
             * 'frame': the data will contain nothing (use `nb_frames`)
             * 'annotation_raw': the data will contain a raw annotation for the current frame,
-                where the annotation is a full GCV response serialized to a JSON compatible format
+                where the annotation is a full annotation response serialized to a JSON compatible format
                 (see: `Serializer` above). There will be one annotation for each extracted frame of the video
                 Note that annotation_raw can happen many time for multiple stages of the analysis,
                 and that data may only be provided partially
@@ -236,7 +236,7 @@ class Analyzer(Thread):
             duration=self._videoDuration, generator=self._minividGenerator)
         monitor.start()
         minividFolder = self._minividGenerator()
-        # monitor.stop()
+        monitor.stop()
         try:
             # should terminate by itself once it reported having generated all the frames it expect
             monitor.join()
@@ -276,7 +276,7 @@ class Analyzer(Thread):
                     results = json.load(f)
                     if len(results) > 0:
                         logging.info(
-                            "GCV raw results found - analysis skipped (set force=true): %s",
+                            "Raw annotation results found - analysis skipped (set force=true): %s",
                             jsonDump)
                         self._pushAllAnalysisProgress(
                             'annotation_raw', results, 'Minivid analysis, frame #%d')
@@ -316,7 +316,7 @@ class Analyzer(Thread):
                     results = json.load(f)
                     if len(results) > 0:
                         logging.info(
-                            "GCV post-processed results found - analysis skipped (set force=true): %s",
+                            "Post-processed annotation results found - analysis skipped (set force=true): %s",
                             jsonDump)
                         self._pushAllAnalysisProgress(
                             'annotation', results, 'Minivid analysis post-processing, frame #%d')
@@ -353,7 +353,7 @@ class Analyzer(Thread):
                     results = json.load(f)
                     if len(results.items()) > 0:
                         logging.info(
-                            "GCV post-processed results found - analysis skipped (set force=true): %s",
+                            "Aggregated annotation results found - analysis skipped (set force=true): %s",
                             jsonDump)
                         return results
             except:
