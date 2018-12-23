@@ -92,6 +92,217 @@ class AnalysisPostProcessor(object):
         super(AnalysisPostProcessor, self).__init__()
         self._results = results
         self._contextLen = Conf['data']['ffmpeg']['minividPostProcContext']
+        self._faceUid = 0
+
+    DISTANCE_RATIO = 50
+    def _isValidCandidate(self, face, candidate, distance):
+        faceWidth = abs(face['boundaries'][1]['x'] - face['boundaries'][0]['x'])
+        faceHeight = abs(face['boundaries'][1]['y'] - face['boundaries'][0]['y'])
+        dx = abs(face['boundaries'][0]['x'] - candidate['boundaries'][0]['x'])
+        dx2 = abs(face['boundaries'][1]['x'] - candidate['boundaries'][1]['x'])
+        dy = abs(face['boundaries'][0]['y'] - candidate['boundaries'][0]['y'])
+        dy2 = abs(face['boundaries'][1]['y'] - candidate['boundaries'][1]['y'])
+
+        return (
+            dx * 100 / float(faceWidth) < self.DISTANCE_RATIO * distance and
+            dx2 * 100 / float(faceWidth) < self.DISTANCE_RATIO * distance and
+            dy * 100 / float(faceHeight) < self.DISTANCE_RATIO * distance and
+            dy2 * 100 / float(faceHeight) < self.DISTANCE_RATIO * distance)
+
+    # TODO: maybe, ignore giggling and flickering faces?
+    def _identifyFaces(self, context, frameI, contextStart, contextEnd, previousFramePP):
+        """
+        Assign a unique id to faces found in `previousFramePP`.
+        The id will be unique to a face accross a given frame, and will be re-used for subsequent
+        frames if the face position doesn't move too abruptly from one frame to the other
+        (based on a ratio speed / face size, since larger faces will likely more faster)
+        This enables the smoothing step not to get confused when multiple frames appear and disappear on screen
+        """
+        currentFrameData = dict(**context[frameI])
+
+        # if there is no face, nothing to do
+        if len(currentFrameData['faces']) == 0:
+            return currentFrameData
+
+        # if self._uid is still 0, we might not be in the first frame but the first that has a face - all the same
+        if previousFramePP is None or self._faceUid == 0:
+            # first frame case - just assign a uid to each face
+            for face in currentFrameData['faces']:
+                face['id'] = self._faceUid
+                self._faceUid += 1
+            return currentFrameData
+
+        # subsequent frames - look in tghe previous data which it is the most likely to be
+        # if there ever has only been one, pick that one
+        # don't do that: if the face is too far between two frames (e.g. transition between two plans)
+        # we end up averaging the transition which result in faces in the middle of nowhere
+        # if self._faceUid == 1 and len(currentFrameData['faces']) == 1:
+        #     currentFrameData['faces'][0]['id'] = self._faceUid
+
+        # if is a valid candidate, pick this one
+        # otherwise, assign a new uid
+        for face in currentFrameData['faces']:
+            for candidate in previousFramePP['faces']:
+                if self._isValidCandidate(face, candidate, 1):
+                    face['id'] = candidate['id']
+            if not 'id' in face:
+                face['id'] = self._faceUid
+                self._faceUid += 1
+
+        return currentFrameData
+
+    # FIXME (if possible): smoothing works kinda well when a single face is in the picture, but
+    # when multiples are found it is really hard to avoid confusing a face with another.
+    # For instance, say a frame has 2 faces, and the next one only has one, because the first one disappeared,
+    # it is not trivial to get the smoothing algorithm to recognize that the first face disappeared,
+    # and the second one stayed on screen.
+    # We might be able to solve this by running a face-identification step, that will attempt to set
+    # must likely id to face trying to minimize the distance between the face of the same id between two frames
+    # Then, instead of averaging by face position (which, even sorted by coordinate, leads to a lot of confusion),
+    # we would be able to average by face id.
+    SMOOTH_CONTEXT_LEN = 2
+    def _getSmoothedFaces(self, context, frameI, contextStart, contextEnd, previousFramePP):
+        currentFrameData = dict(**context[frameI])
+        if len(currentFrameData['faces']) == 0:
+            return []
+
+        faceDataById = {}  # deque of faces for each identified face
+
+        # return false if need to stop the operation
+        def addFaceToDataFromFrame(adder, contextPos):
+            if not 'faces' in context[contextPos] or len(context[contextPos]['faces']) == 0:
+                return False  # don't consider the whole context, stop when the face is not detected
+
+            faces = context[contextPos]['faces']
+            for face in faces:
+                if face['id'] not in faceDataById:
+                    faceDataById[face['id']] = deque()
+                adder(faceDataById[face['id']], face)
+
+            return True
+
+        # TODO: use all context or a subset based on the timestep?
+        adder = lambda data, face: data.append(face)
+        for x in range(frameI, min(frameI + self.SMOOTH_CONTEXT_LEN, len(context))):
+            if not addFaceToDataFromFrame(adder, x):
+                break
+
+        adder = lambda data, face: data.appendleft(face)
+        for x in range(frameI, max(frameI - self.SMOOTH_CONTEXT_LEN, 0), -1):
+            if not addFaceToDataFromFrame(adder, x):
+                break
+
+        smoothedFaces = {faceuid: {'boundaries': None, 'landmarks': []}
+                         for faceuid in faceDataById}
+
+        # loop over each face in the current frame data - we're gonna update its position to the
+        # average of the position of the face with the same id in the other frames
+        for face in currentFrameData['faces']:
+            faceque = faceDataById[face['id']]
+            faceavg = lambda getData: (sum(getData(face) for face in faceque) / len(faceque))
+            x = faceavg(lambda face: face['boundaries'][0]['x'])
+            y = faceavg(lambda face: face['boundaries'][0]['y'])
+            x2 = faceavg(lambda face: face['boundaries'][1]['x'])
+            y2 = faceavg(lambda face: face['boundaries'][1]['y'])
+            face['boundaries'] = [{'x': x, 'y': y}, {'x': x2, 'y': y2}]
+
+            haslandmarks = [face for face in faceque if len(face['landmarks']) > 0]
+            landmarkavg = lambda getData: (sum(getData(face) for face in haslandmarks) / len(haslandmarks))
+            if len(haslandmarks) == 0:
+                continue
+
+            for lk, landmark in enumerate(haslandmarks[0]['landmarks']):
+                landmark['x'] = landmarkavg(lambda face: landmark['x'])
+                landmark['y'] = landmarkavg(lambda face: landmark['y'])
+
+        return currentFrameData
+
+    FLICKERING_CONTEXT_LEN = 3
+    def _markFlickeringFaces(self, context, frameI, contextStart, contextEnd, previousFramePP):
+        """
+        Returns the list of faces data found in `currentFrameData` marked with an additional `flickering` field
+        The field will be True when the face is found flickering, which means it wasn't
+        present in all frames of a window of up to `FLICKERING_CONTEXT_LEN` on both sides of
+        the provided `frameI` in the given `context`.
+        Note: if multiple faces are found in the picture, we'll not consider the faces that are further
+        appart from each on in the context window than `distance * 5% * faceSize` in any dimension
+        """
+        def hasAtLeastOneCandidate(face, annotation, distance):
+            for candidate in annotation['faces']:
+                if self._isValidCandidate(face, candidate, distance):
+                    return True
+            return False
+            # return any(isValidCandidate(face, candidate, distance)
+            #            for candidate in annotation['faces'])
+
+        currentFrameData = dict(**context[frameI])
+        start = max(0, frameI - self.FLICKERING_CONTEXT_LEN)
+        stop = min(len(context), frameI + self.FLICKERING_CONTEXT_LEN)
+
+        for face in currentFrameData['faces']:
+            flickeringLeft, flickeringRight = False, False
+
+            for x in range(start, frameI):
+                flickeringLeft = not hasAtLeastOneCandidate(face, context[x], abs(frameI - x) or 1)
+                if flickeringLeft:
+                    break
+
+            for x in range(frameI + 1, stop):
+                flickeringRight = not hasAtLeastOneCandidate(face, context[x], abs(frameI - x) or 1)
+                if flickeringRight:
+                    break
+
+            if flickeringLeft and flickeringRight:
+                face['flickering'] = True
+
+        return currentFrameData
+
+    GIGGLING_CONTEXT_LEN = 10
+    GIGGLING_ALLOWANCE = 15
+    def _markGigglingLandmarks(self, context, frameI, contextStart, contextEnd, previousFramePP):
+        """
+        Returns the list of face data found in `context[frameI]` marked with an additional `giggling` field
+        The field will be True when the face is found giggling, that is the landmarks do not retain
+        a stable position within the rect determined by this face accross multiple frames.
+        Note: landmark position will be normalized in the corresponding face rect coordinate,
+        which means there will be no need for identifying faces when multiple are found in
+        a given picture. We'll just use all the faces found in the previous frames for the average,
+        compare this average to the current position, and mark `giggling` if the difference
+        exceeds a percentage of the face size (in any dimension)
+        """
+        currentFrameData = dict(**context[frameI])
+        start = max(0, frameI - self.GIGGLING_CONTEXT_LEN)
+        stop = min(len(context), frameI + self.GIGGLING_CONTEXT_LEN)
+        context = list(context)[start:stop]
+
+        def computeAverageLandmark(faces, lk, dim):
+            # todo: we subtract the face coordinate to translate in the face rect coordinate
+            # it'd be nice to also apply a ratio to account for changes in scaling
+            return sum(face['landmarks'][lk][dim] - face['boundaries'][0][dim]
+                       for face in faces) / len(faces)
+
+        faces = [face for annotation in context for face in annotation['faces']]
+        for face in currentFrameData['faces']:
+            faceWidth = abs(face['boundaries'][1]['x'] - face['boundaries'][0]['x'])
+            faceHeight = abs(face['boundaries'][1]['y'] - face['boundaries'][0]['y'])
+
+            for lk, landmark in enumerate(face['landmarks']):
+                meanX = computeAverageLandmark(faces, lk, 'x')
+                meanY = computeAverageLandmark(faces, lk, 'y')
+                x = landmark['x'] - face['boundaries'][0]['x']
+                y = landmark['y'] - face['boundaries'][0]['y']
+                dx = abs(meanX - x)
+                dy = abs(meanY - y)
+                xGiggling = dx * 100 / float(faceWidth)
+                yGiggling = dy * 100 / float(faceHeight)
+
+                landmark['xGiggling'] = xGiggling
+                landmark['yGiggling'] = yGiggling
+                if (xGiggling > self.GIGGLING_ALLOWANCE or
+                    yGiggling > self.GIGGLING_ALLOWANCE):
+                    landmark['giggling'] = True
+
+        return currentFrameData
 
     def _computeFaceRatio(self, faceData):
         """
@@ -107,31 +318,33 @@ class AnalysisPostProcessor(object):
             total += (width / totalWidth + height / totalHeight) / 2 * (1 + i / 5)
         return total
 
-    def _postProcessor(self, context, frameI, contextStart, contextEnd):
-        """
-        Perform post-processing of results for frame `frameI` (int) in the given `context` where:
-        * `context` is a list of frame analysis results and should contain up to `contextLen * 2` items
-        * `frameI` is the index of the frame result to post-process in the `context` array
-        * `contextStart` is the frame index of the first frame of the context in the overall frames list
-        * `contextEnd` is the frame index of the last frame of the context in the overall frames list
-        This doesn't do much than providing some additional fields and computing the face ratio,
-        in the future we should examine the previous and next frames and compute a confidence value, then discard
-        the frames that have a low face detection confidence
-        (which may or may not account for the detection confidence per frame)
-        """
-        processed = dict(**context[frameI])
+    def _finalize(self, context, frameI, contextStart, contextEnd, previousFramePP):
+        currentFrameData = dict(**context[frameI])
+
         return extends(
-            processed,
+            currentFrameData,
             contextStart=contextStart, contextStartFile=context[0]['name'],
             contextEnd=contextEnd, contextEndFile=context[-1]['name'],
             postProcessorVersion__=AnalysisPostProcessor.__version__,
             faceRatio=self._computeFaceRatio(context[frameI]['faces']))
 
-    def __call__(self):
+
+    def _framesWithContext(self, results, stageLabel):
+        """
+        WIP
+        Returns an iterable that will iterate over the provided iterable,
+        adding some context (previous and next frames) to each yielded item.
+        Yields (context, itemIndex, contextStart, contextEnd) items where
+        * `context` is the context around the item
+        * `itemIndex` is the index of the current item in the provided context
+        * `contextStart` is the position of the first item of the context in the provided iterable
+        * `contextEnd` is the position of the last item of the context in the provided iterable
+        """
         context = deque([], maxlen=(
             self._contextLen * 2))
         preprocessedFrame = -1
-        for i, res in enumerate(tqdm(self._results, desc='[Post-Processing')):
+        prev = None
+        for i, res in enumerate(tqdm(self._results, desc='[%s' % stageLabel)):
             context.append(res)
             if len(context) > self._contextLen:
                 # in `context` index space:
@@ -139,7 +352,7 @@ class AnalysisPostProcessor(object):
                 # 10 < context len < 20: PP(i - 10) (i = 10: pp(0), i = 12: PP(2), i = 15: PP(5) )
                 # i >= 20: 10 PP(10)
                 preprocessedFrame = min(i - self._contextLen, self._contextLen - 1)
-                yield self._postProcessor(
+                yield (
                     context,
                     preprocessedFrame,
                     i + 1 - len(context), i)
@@ -149,11 +362,34 @@ class AnalysisPostProcessor(object):
         # otherwise there is going to be oone context length of results that have been skipped
         while preprocessedFrame + 1 < len(context):
             preprocessedFrame += 1
-            yield self._postProcessor(
+            yield (
                 context,
                 preprocessedFrame,
                 i + 1 - len(context), i)
 
+    def __call__(self):
+        processors = [
+            ('Mark Flickering Faces', self._markFlickeringFaces),
+            ('Mark Giggling Landmarks', self._markGigglingLandmarks),
+            ('Identify Faces', self._identifyFaces),
+            ('Smooth Face Positions', self._getSmoothedFaces),
+            ('Finalization', self._finalize)
+        ]
+
+        frames = self._results
+        processed = []
+        prev = None
+        for name, processor in tqdm(processors, desc='[Post-Processing'):
+            for (context, frameI, contextStart, contextEnd) in self._framesWithContext(frames, name):
+                prev = processor(context, frameI, contextStart, contextEnd, prev)
+                processed.append(prev)
+
+            frames = processed
+            prev = None
+            processed = []
+
+        for item in frames:
+            yield item
 
 
 class AnalysisAggregator(object):
@@ -174,6 +410,7 @@ class AnalysisAggregator(object):
     def __call__(self):
         if len(self._results) == 0:
             raise Exception('No result to aggregate!')
+        logging.info("Aggregating %d results..." % len(self._results))
         return {
             '__version__': AnalysisAggregator.__version__,
             'averageFaceRatio': sum(

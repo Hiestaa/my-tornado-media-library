@@ -5,11 +5,12 @@
  * The process starts immediately once the object is constructed.
  */
 $(function () {
-    var MARKER_COLOR = '#BB6B00';
-    var MARKER_BORDER_COLOR = '#BB4800';
+    var MARKER_COLOR = '#BB4800';
     var MARKER_FRAME_COLOR = '#DA7D00';
     var FACE_FRAME_COLOR = '#FFAF43';
-    var EXTENDED_FACE_FRAME_COLOR = '#FF3000';
+    var EXTENDED_FACE_FRAME_COLORS = ['#00FFC0', '#00FF6C', '#00FF0C', '#C0FF00', '#FFE400', '#FF2A00', '#FF00C0', '#4E00FF'];
+    var COLOR_GIGGLING = '#FF00F6';
+    var COLOR_FLICKERING = '#00C6FF';
     var CROP_FRAME_COLOR = '#00C4E1';
     function Visualizer($view, thumbnail, videoId, options) {
         var self = this;
@@ -166,6 +167,15 @@ $(function () {
                 self.$view.find('#clean-up').removeClass('hidden');
                 self.$view.find('#title').text('Analysis interrupted.');
             });
+            self.$view.find('#face-ratio').mousedown(function() {
+                self._mouseDownOverSparkline = true;
+            });
+            self.$view.find('#face-detection-confidence').mousedown(function() {
+                self._mouseDownOverSparkline = true;
+            });
+            self.$view.mouseup(function () {
+                self._mouseDownOverSparkline = false;
+            })
         }
 
         self.updateDelay = function (value) {
@@ -265,10 +275,10 @@ $(function () {
             var RADIUS = 1;
             self._canvasCtx.beginPath();
             self._canvasCtx.arc(landmark.x, landmark.y, RADIUS, 0, 2 * Math.PI, false);
-            self._canvasCtx.fillStyle = MARKER_COLOR;
+            self._canvasCtx.fillStyle = landmark.giggling ? COLOR_GIGGLING : MARKER_COLOR;
             self._canvasCtx.fill();
             self._canvasCtx.lineWidth = 1;
-            self._canvasCtx.strokeStyle = MARKER_BORDER_COLOR;
+            self._canvasCtx.strokeStyle = landmark.giggling ? COLOR_GIGGLING : MARKER_COLOR;
             self._canvasCtx.stroke();
         }
 
@@ -291,7 +301,7 @@ $(function () {
                 bounds[2] - bounds[0] + MARGIN,
                 bounds[3] - bounds[1] + MARGIN);
             self._canvasCtx.lineWidth = 2;
-            self._canvasCtx.strokeStyle = FACE_FRAME_COLOR;
+            self._canvasCtx.strokeStyle = faceData.flickering ? COLOR_FLICKERING : FACE_FRAME_COLOR;
             self._canvasCtx.stroke();
 
             // early abord if we have no landmarks - two other frames are landmark based.
@@ -323,7 +333,7 @@ $(function () {
                 bounds[2] - bounds[0] + MARGIN,
                 bounds[3] - bounds[1] + MARGIN);
             self._canvasCtx.lineWidth = 1;
-            self._canvasCtx.strokeStyle = MARKER_FRAME_COLOR;
+            self._canvasCtx.strokeStyle = faceData.flickering ? COLOR_FLICKERING : MARKER_FRAME_COLOR;
             self._canvasCtx.stroke();
 
 
@@ -340,7 +350,9 @@ $(function () {
                 bounds[2] - bounds[0] + MARGIN,
                 bounds[3] - bounds[1] + MARGIN);
             self._canvasCtx.lineWidth = 1;
-            self._canvasCtx.strokeStyle = FACE_FRAME_COLOR;
+            self._canvasCtx.strokeStyle = faceData.flickering
+                ? COLOR_FLICKERING
+                : EXTENDED_FACE_FRAME_COLORS[faceData.id % EXTENDED_FACE_FRAME_COLORS.length];
             self._canvasCtx.stroke();
         }
 
@@ -457,6 +469,7 @@ $(function () {
 
         self._sparklineRegionChangeTimeout = null;
         self._onSparklineRegionChange = function (ev, frameToStepId) {
+            if (!self._mouseDownOverSparkline) { return; }
             var sparkline = ev.sparklines[0];
             var region = sparkline.getCurrentRegionFields();
             if (region.x === undefined) { return; }
@@ -500,14 +513,15 @@ $(function () {
             self.$frame.text(frame)
             var loadedWebData = data.loadedWebData;
             var annotation = data.annotation;
-            var confidence = 0;
             var msg = (
                 "Executing action: displayAnnotationRaw, frame#" + frame +
-                " for file:" + filename);
+                " for file:" + filename + '<br />' +
+                self.syntaxHighlight(JSON.stringify(annotation, undefined, 4)));
             // console.log(msg, annotation);
             self.$detailsBoard.html(msg);
             self._imageCanvasCtx.drawImage(data.preloadImage, 0, 0);
 
+            var confidence = 0;
             if (annotation.faces) {
                 annotation.faces.map(self._displayFace);
                 if (annotation.faces.length > 0) {
@@ -550,8 +564,25 @@ $(function () {
 
         }
 
+        self.syntaxHighlight = function(json) {
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                var cls = 'number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'key';
+                    } else {
+                        cls = 'string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
         // add face detection confidence - compute average face frame ratio (nb frame with face, not accounting for its size)
-
         self.displayAnnotationPP = function (data, stepId) {
             self._clearCanvas();
             var filename = data.annotation.name;
@@ -560,13 +591,20 @@ $(function () {
             var annotation = data.annotation;
             var msg = (
                 "Executing action: displayAnnotationPP, frame#" + frame +
-                ", file:" + filename);
-            // console.log(msg, annotation);
+                ", file:" + filename + '<br />' +
+                self.syntaxHighlight(JSON.stringify(annotation, undefined, 4)));
             self.$detailsBoard.html(msg);
             self._imageCanvasCtx.drawImage(data.preloadImage, 0, 0);
 
+            var confidence = 0;
             if (annotation.faces) {
                 annotation.faces.map(self._displayFace);
+                if (annotation.faces.length > 0) {
+                    confidence = annotation.faces.reduce(function (acc, itm) {
+                        return acc + itm.detection_confidence
+                    }, 0) / annotation.faces.length;
+                }
+                self._displayFaceDetectionConfidence(frame, confidence, stepId);
             }
             if (annotation.crop) {
                 annotation.crop.map(self._displayCrop);

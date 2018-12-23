@@ -32,9 +32,9 @@
             <tbody>
                 {% for file in status['fileList'] %}
                     {% if 'snapshot' in file %}
-                        <tr id="{{ file['id'] }}" class="uk-table-middle" title="<img style='max-width: 400px; max-height: 400px' src='{{file.get('snapshot')}}'>" data-uk-tooltip="{pos:'bottom-left'}">
+                        <tr id="{{ file.get('id') }}" class="uk-table-middle" title="<img style='max-width: 400px; max-height: 400px' src='{{file.get('snapshot')}}'>" data-uk-tooltip="{pos:'bottom-left'}">
                     {% else %}
-                        <tr id="{{ file['id'] }}" class="uk-table-middle" title="{{file['fileName']}}" data-uk-tooltip="{pos:'bottom-left'}">
+                        <tr id="{{ file.get('id') }}" class="uk-table-middle" title="{{file['fileName']}}" data-uk-tooltip="{pos:'bottom-left'}">
                     {% end %}
                         {% if 'link' in file %}
                             <td><a href="{{file['link']}}">{{file['fileName']}}</a></td>

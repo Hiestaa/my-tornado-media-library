@@ -81,19 +81,19 @@ $(function () {
             <div class="uk-form-controls uk-grid has-labels">\
                 <div class="uk-width-1-4">\
                     Last Favorite\
-                    <input id="lastFavorite_str" class="uk-width-1-6" type="text" disabled value="{{lastFavorite_str}}">\
+                    <input id="lastFavorite_str" type="text" disabled value="{{lastFavorite_str}}">\
                 </div>\
                 <div class="uk-width-1-4">\
                     Last Tagged\
-                    <input id="lastTagged_str" class="uk-width-1-6" type="text" disabled value="{{lastTagged_str}}">\
+                    <input id="lastTagged_str" type="text" disabled value="{{lastTagged_str}}">\
                 </div>\
                 <div class="uk-width-1-4">\
                     Last Seen (watched)\
-                    <input id="lastSeen_str" class="uk-width-1-6" type="text" disabled value="{{lastSeen_str}}">\
+                    <input id="lastSeen_str" type="text" disabled value="{{lastSeen_str}}">\
                 </div>\
                 <div class="uk-width-1-4">\
                     Last Display\
-                    <input id="lastToWatch_str" class="uk-width-1-6" type="text" disabled value="{{lastDisplay_str}}">\
+                    <input id="lastToWatch_str" type="text" disabled value="{{lastDisplay_str}}">\
                 </div>\
             </div>\
         </div>\

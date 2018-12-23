@@ -270,7 +270,8 @@ class Analyzer(Thread):
         logging.debug("Performing analysis from minivid in folder: %s" % minividFolder)
         jsonDump = os.path.join(self._snapshotsFolder, "%s-analysis_%s_raw.json" % (
             os.path.basename(self._minividFolder), self._annotator))
-        if not self._force and os.path.exists(jsonDump):
+        # if not self._force and os.path.exists(jsonDump):
+        if os.path.exists(jsonDump):
             try:
                 with open(jsonDump, 'r') as f:
                     results = json.load(f)
@@ -278,8 +279,8 @@ class Analyzer(Thread):
                         logging.info(
                             "Raw annotation results found - analysis skipped (set force=true): %s",
                             jsonDump)
-                        self._pushAllAnalysisProgress(
-                            'annotation_raw', results, 'Minivid analysis, frame #%d')
+                        # self._pushAllAnalysisProgress(
+                        #     'annotation_raw', results, 'Minivid analysis, frame #%d')
                         return results
             except:
                 pass
@@ -337,6 +338,7 @@ class Analyzer(Thread):
                 dataType='annotation', data=res, frame_number=i,
                 step='Minivid analysis post-processing, frame #%d' % (len(ppResults)),
                 file=res['name'])
+            time.sleep(0.001)
 
         if len(ppResults) > 0 and len(ppResults) == len(results) and not self._stopped():
             with open(jsonDump, 'w') as f:

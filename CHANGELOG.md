@@ -1,5 +1,17 @@
 ### Changelog
 
+### *Saturday Dec 22*
+
+* The smoothing function is now used. Implemented a face identification step prior to the smoothing step to enable smoothing of faces of the same id only and reduce confusion.
+* Multi-phase post-processing: the face identification is now performed for the whole frameset before starting smoothing - this enables to smooth faces using the frame(s) before and after the current one, as later frames will have already been identified. Progress is only reported for the final pre-processing result.
+
+### *Friday Dec 21*
+
+* Post-processing
+    * mark 'flickering' faces a face that only shows up for less than N frames
+    * mark 'giggling' unstable landmark (note: in the reference of the rect for normalization, this doesn't apply to motion), as it must indicate an unconfident face detection (a similar image, the next frame, should have landmarks at the similar position, the face couldn't possibly have changed much)
+    * "Smoothing" function, like a moving average, because the motion in the video can be assumed to be smooth
+
 ### *Thursday Dec 20*
 
 * Make visually apparent the fact that a video has been analyzed: add an icon somewhere in the video title and the "Analyze" label making obvious that this has been done already
