@@ -23,7 +23,7 @@ class AlbumsHandler(RequestHandler):
 
     def __populatePicturesURLs(self, album):
         """
-        Will populate the `picturesURL` field of the given album dict with valid URLs.
+        Will populate the `url` field of each picture of the given album dict with valid URLs.
         """
         picBaseURL = '/download/album/'
         # ensure trailing slash
@@ -31,10 +31,9 @@ class AlbumsHandler(RequestHandler):
             picBaseURL += '/'
         #add album id to complain to the route format defined in the server class
         picBaseURL += "%s/" % str(album['_id'])
-        # for each picture:
-        album['picturesURL'] = [
-            picBaseURL + str(i)
-            for i in range(album['picsNumber'])]
+
+        for i, pic in enumerate(album['picturesDetails']):
+            pic['url'] = picBaseURL + str(i)
 
         return album
 
@@ -42,14 +41,31 @@ class AlbumsHandler(RequestHandler):
         """
         Route: GET /api/album/display
         Return the list of all albums of the database.
-        If the parameter `albumId` is defined, only this album will be returned.
+        If the parameter `albumId` is defined, only this album will be returned,
+        alongside with available face detection annotations.
         """
         albumId = self.get_argument('albumId', default=None)
 
         if albumId is None:
+            start_t = time.time()
             albums = model.getService('album').getAll(
-                returnList=True, orderBy={'creation': -1})
-
+                returnList=True, orderBy={'creation': -1}, projection={
+                    'album': 1,
+                    'fullPath': 1,
+                    'picturesDetails': 1,
+                    'cover': 1,
+                    'name': 1,
+                    'display': 1,
+                    'picsNumber': 1,
+                    'starredNumber': 1,
+                    'creation': 1,
+                    'lastDisplay': 1,
+                    'lastStarred': 1,
+                    'averageWidth': 1,
+                    'averageHeight': 1,
+                    'tags': 1
+                })
+            logging.info("Retrieved %d albums in %s", len(albums), timeFormat(time.time() - start_t))
             if not albums:
                 return self.write(json.dumps([]))
             index, found = next(((i, x) for i, x in enumerate(albums) if x['fullPath'] == 'random'), (-1, False))
@@ -70,6 +86,7 @@ class AlbumsHandler(RequestHandler):
             album = model.getService('album').getById(albumId)
             if album is None:
                 raise HTTPError(404, 'Not Found')
+            album = model.getService('album').extendAlbumWithFaces(album)
             album = self.__populatePicturesURLs(album)
             self.write(json.dumps(album))
 
@@ -149,14 +166,14 @@ class AlbumsHandler(RequestHandler):
 
         try:
             if albumId != 'random' and albumId != 'starred':
-                os.remove(album['fullPath'] + album['pictures'][pictureIdx])
+                os.remove(album['fullPath'] + album['picturesDetails'][pictureIdx]['filename'])
             else:
                 # the pictures array contains the fullpath
                 # (the physical album does not exist)
-                os.remove(album['pictures'][pictureIdx])
+                os.remove(album['picturesDetails'][pictureIdx]['filename'])
         except Exception as e:
             logging.error("Unable to remove picture %s from album %s."
-                          % (album['name'], album['pictures'][pictureIdx]))
+                          % (album['name'], album['picturesDetails'][pictureIdx]))
             raise
 
         self.write(json.dumps({'success': True}))

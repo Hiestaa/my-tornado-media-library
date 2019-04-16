@@ -213,14 +213,14 @@ $(function() {
      * Prepares the scheduled steps in advance so that no lag will happen upon execution due to loading time
      * The `visualizer` parameter should be an object able to prepare and execute scheduled actions
      * The `options` parameter can hold the following fields:
-     * * `delay`: delay between visualization steps in ms. Default 1000ms.
+     * * `delay`: delay between visualization steps in ms. Default 10ms.
      */
     function Scheduler(visualizer, options) {
         var self = this;
 
         options = options || {}
 
-        self._delay = options.delay || 1000.0;
+        self._delay = options.delay || 10.0;
 
         // self._scheduledStepsById = {};
         self._steps = [];

@@ -6,13 +6,16 @@ import logging
 import time
 import random
 import os
+import json
+from tqdm import tqdm
 
-from conf import Conf
-
+from pymongo import DESCENDING, ASCENDING
 from bson.objectid import ObjectId
 
+from conf import Conf
 from server.services.baseService import Service
-from tools.utils import extends
+from tools.utils import extends, timeFormat
+from tools.analyzer.analyzers import AlbumAnalyzer
 
 """
 Schema:
@@ -21,41 +24,42 @@ Schema:
     * fullPath:string fullPath to the root folder of this album (all the pictures are
                       expected to be found in this folder) (with trailing /)
                       WARNING: the 'data.albums.rootFolder' prefix won't be included
-    * pictures:array list of pictures in this album. Each picture is
-                     represented as a string, name of the file of the picture
-                     in the albun's folder
+    * picturesDetails:array list of pictures in this albums, where each picture is an object
+                            with the shape {filename, display, starred, analyzerVersion, width, height}
     * cover:int index of the picture to be used as cover for this album.
     * name:string display name for this album
     * display:int number of times this album has been shown to the client
     * picsNumber:int number of pictures in this album
+    * starredNumber:int number of starread pictures in this album
     * creation:float timestamp of the creation of the album
     * lastDisplay:float timestamp of the last time this album has been displayed
     * lastStarred:float timestamp of the last time this album has been marked starred
     * averageWidth: average width of the pictures in this album
     * averageHeight: average height of the pictures in this album,
     * tags:list of tags attached to this album
-    * starred: list of id of pictures that have been starred in this album.
 """
 
 
 class AlbumService(Service):
     """
-    Provides helper functions related to the Albumss collection
+    Provides helper functions related to the Albums collection
     of the database.
     """
     def __init__(self, db):
         super(AlbumService, self).__init__(db, 'albums')
+        self._collection.ensure_index(
+            [('creation', DESCENDING)], name="album_creation_idx")
 
     def schema(self):
         return {
             'album':True,
             'fullPath': True,
-            'pictures':True,
+            'picturesDetails': True,
             'cover':True,
             'name':True,
             'display':True,
-            'starred':True,
             'picsNumber':True,
+            'starredNumber': True,
             'creation':True,
             'lastDisplay':True,
             'lastStarred':True,
@@ -69,18 +73,21 @@ class AlbumService(Service):
             'album': realName
         })
 
-    def insert(self, album, fullPath, pictures, cover=0, name=None,
-               display=0, picsNumber=None, creation=time.time(),
+    def insert(self, album, fullPath, picturesDetails, cover=0, name=None,
+               display=0, picsNumber=None, creation=None,
                lastDisplay=0, lastStarred=0, averageWidth=0, averageHeight=0,
-               tags=[], starred=[], _id=None):
+               tags=None, _id=None):
         """
         Insert a new document and returns its id
         """
         logging.debug("Saving new album: %s" % album)
+        creation = creation or time.time()
+        tags = tags or []
+
         if name is None:
             name = album
         if picsNumber is None:
-            picsNumber = len(pictures)
+            picsNumber = len(picturesDetails)
         # ensure proper folder separator
         toRemove = Conf['data']['albums']['rootFolder']
         if fullPath.startswith(toRemove):
@@ -93,19 +100,18 @@ class AlbumService(Service):
         post = self.schema()
         post['album'] = album
         post['fullPath'] = fullPath
-        post['pictures'] = pictures
+        post['picturesDetails'] = picturesDetails
         post['cover'] = cover
         post['name'] = name
         post['display'] = display
-        post['starred'] = starred
         post['picsNumber'] = picsNumber
+        post['starredNumber'] = 0
         post['creation'] = creation
         post['lastDisplay'] = lastDisplay
         post['lastStarred'] = lastStarred
         post['averageWidth'] = averageWidth
         post['averageHeight'] = averageHeight
         post['tags'] = tags
-        post['starred'] = starred
 
         if _id is not None:
             post['_id'] = ObjectId(_id)
@@ -156,13 +162,20 @@ class AlbumService(Service):
         # get starred or random album document
         album = self.getById(albumId)
         # find fullPath
-        picPath = album['pictures'][pictureIdx]
+        picPath = album['picturesDetails'][pictureIdx]['filename']
         fullPath = os.path.dirname(picPath) + os.path.sep
         logging.debug("Picture belongs to album with fullPath: %s" % fullPath)
         # find album
         realAlbum = self.getByPath(fullPath)
         # find real picture index in the real album
-        realPicIdx = realAlbum['pictures'].index(os.path.basename(picPath))
+        realPicIdx = None
+        try:
+            realPicIdx = next(idx for idx, pic in enumerate(realAlbum['picturesDetails'])
+                              if pic['filename'] == os.path.basename(picPath))
+        except StopIteration:
+            logging.warning("Couldn't determine belonging album of picture: %s", picPath)
+            pass
+
         logging.debug("Picture is number %d in album %s" % (realPicIdx, realAlbum['_id']))
         return realAlbum['_id'], realPicIdx
 
@@ -182,7 +195,8 @@ class AlbumService(Service):
         logging.debug("New starred picture: %d" % (pictureIdx))
         self._collection.update(
             {'_id': ObjectId(albumId)},
-            {'$addToSet': {'starred': pictureIdx}})
+            {'$set': {'picturesDetails.%d.starred' % pictureIdx: True},
+             '$inc': {'starredNumber': 1}})
 
     def removeStar(self, albumId, pictureIdx):
         if albumId == 'random' or albumId == 'starred':
@@ -191,7 +205,8 @@ class AlbumService(Service):
         logging.debug("Removing star from picture: %d" % (pictureIdx))
         self._collection.update(
             {'_id': ObjectId(albumId)},
-            {'$pull': {'starred': pictureIdx}})
+            {'$set': {'picturesDetails.%d.starred' % pictureIdx: False},
+             '$inc': {'starredNumber': -1}})
 
     def removePicture(self, albumId, pictureIdx):
         if albumId == 'random' or albumId == 'starred':
@@ -200,15 +215,9 @@ class AlbumService(Service):
             self.removePicture(
                 *self.__findBelongingAlbum(albumId, pictureIdx))
 
-        album = self.getById(albumId, fields=['_id', 'name', 'pictures', 'cover', 'starred'], keepRealId=True)
+        album = self.getById(albumId, fields=['_id', 'name', 'picturesDetails', 'cover'], keepRealId=True)
         logging.debug('deleting picture %s from album %s' % (str(pictureIdx), album['_id']))
 
-        for i, idx in enumerate(album['starred']):
-            if idx == pictureIdx:
-                del album['starred'][i]
-            elif idx > pictureIdx:
-                logging.debug("Album %s: picture %d becomes %d" % (album['name'], idx, idx - 1))
-                album['starred'][i] -= 1
         if album['cover'] > pictureIdx:
             album['cover'] -= 1
 
@@ -216,20 +225,29 @@ class AlbumService(Service):
             # in case of 'random' or 'starred' album, the real album id
             # is different than the given parameter `albumId`
             {'_id': ObjectId(album['_id'])},
-            {'$pull': {'pictures': album['pictures'][pictureIdx]},
-             '$inc': {'picsNumber': -1},
+            {'$pull': {'picturesDetails': album['picturesDetails'][pictureIdx]},
+             '$inc': {
+                 'picsNumber': -1,
+                 'starredNumber': -1
+             },
              '$set': {
-                'cover': album['cover'],
-                'starred': album['starred']
+                'cover': album['cover']
             }})
 
-    def addPicture(self, albumId, picture):
+    def addPicture(self, albumId, picture, width, height):
         if albumId == 'random' or albumId == 'starred':
             raise Exception("Add picture should not be called on %s album!" % albumId)
         self._collection.update({
                 '_id': ObjectId(albumId)
             }, {
-                '$push': { 'pictures': picture },
+                '$push': { 'picturesDetails': {
+                    'filename': picture,
+                    'width': width,
+                    'height': height,
+                    'analyzerVersion': None,
+                    'starred': False,
+                    'display': 0
+                } },
                 '$inc': {'picsNumber': 1}
             })
 
@@ -271,101 +289,139 @@ class AlbumService(Service):
                 ret[i]['_id'] = 'starred'
         return ret
 
-    def resetRandomAlbum(self):
+    def resetRandomAlbum(self, replace=False):
+        album = self._collection.find_one({'fullPath': 'random'})
+        if album is not None and not replace:
+            return
+
         self._collection.remove({'fullPath': 'random'})
         album = self.createRandomAlbum()
         self._collection.insert(self.validate(album))
 
     def createRandomAlbum(self):
+        logging.warning("Creating new random album!")
         start = time.time()
         albums = self.getAll(returnList=True)
         random.seed()
         random_album = {
             'album': 'Random',
             'fullPath': 'random',
-            'pictures': [],  # add all pictures
+            'picturesDetails': [],
             'cover': 0,
             'name': 'Random',
             'display': 0,  # sum of all albums display value
             'picsNumber': 0,  # sum of all picsNumber values
+            'starredNumber': 0,  # sum of all starredNumber values
             'creation': 0,  # min of creation values
             'lastDisplay': 0,  # max of lastDisplay values
             'lastStarred': 0,  # max of lastStarred values
             'averageWidth': 0,  # average of all albums
             'averageHeight': 0,  # average of all albums
             'tags': [],  # no tags
-            'starred': []  # starred feature should be disabled with random album
         }
         if len(albums) == 0:
-            random_album['pictures'] = [os.path.join(*((Conf['server']['assetsPath'] + 'custom/img/question-mark.png').split('/')))]
+            random_album['picturesDetails'] = [{'filename': os.path.join(*((Conf['server']['assetsPath'] + 'custom/img/question-mark.png').split('/')))}]
             return random_album
-        random_album['pictures'] = sum(
-            ([album['fullPath'] + pic for pic in album['pictures']]
-             for album in albums if album['fullPath'] != 'random' and album['fullPath'] != 'starred'),
-            [])
-        random.shuffle(random_album['pictures'])
-        random_album['pictures'] = [os.path.join(*((Conf['server']['assetsPath'] + 'custom/img/question-mark.png').split('/')))] + random_album['pictures']
+
         random_album['display'] = sum((album['display'] for album in albums))
-        random_album['picsNumber'] = len(random_album['pictures'])
         random_album['creation'] = time.time()
         random_album['lastDisplay'] = max((album['lastDisplay'] for album in albums))
         random_album['lastStarred'] = max((album['lastStarred'] for album in albums))
         random_album['averageWidth'] = sum((album['averageWidth'] for album in albums)) / len(albums)
         random_album['averageHeight'] = sum((album['averageHeight'] for album in albums)) / len(albums)
-        # perf issue here? complexity: O(nb_pictures ^ 2)
+
+        random_album['picturesDetails'] = []
         for album in albums:
             if album['fullPath'] == 'starred' or album['fullPath'] == 'random':
                 continue
-            for i, pic in enumerate(album['pictures']):
-                if i in album['starred']:
-                    random_album['starred'].append(random_album['pictures'].index(
-                        album['fullPath'] + pic))
-        logging.debug("Random album generated in %.3fs" % (time.time() - start))
+            for pic in album['picturesDetails']:
+                random_album['picturesDetails'].append({
+                    'filename': album['fullPath'] + pic['filename'],
+                    'starred': True,
+                    'width': pic.get('width'),
+                    'height': pic.get('height'),
+                    'analyzerVersion': pic.get('analyzerVersion')
+                })
+
+        random_album['picsNumber'] = len(random_album['picturesDetails'])
+        random_album['starredNumber'] = sum(1 if pic.get('starred', False) else 0 for pic in random_album['picturesDetails'])
+
+        random.shuffle(random_album['picturesDetails'])
+        random_album['picturesDetails'] = [
+            {'filename': os.path.join(*((Conf['server']['assetsPath'] + 'custom/img/question-mark.png').split('/')))}
+        ] + random_album['picturesDetails']
+        logging.info("Random album generated in %s" % timeFormat(time.time() - start))
         return random_album
 
-    def resetStarredAlbum(self):
+    def resetStarredAlbum(self, replace=False):
+        album = self._collection.find_one({'fullPath': 'starred'})
+        if album is not None and not replace:
+            return
+
         self._collection.remove({'fullPath': 'starred'})
+
         album = self.createStarredAlbum()
         self._collection.insert(self.validate(album))
 
     def createStarredAlbum(self):
         logging.warning("Creating new starred album!")
+        start = time.time()
         albums = self.getAll(returnList=True)
         random.seed()
         starred_album = {
             'album': 'Starred',
             'fullPath': 'starred',
-            'pictures': [],  # add all pictures
+            'picturesDetails': [],
             'cover': 0,
             'name': 'Starred',
             'display': 0,  # sum of all albums display value
             'picsNumber': 0,  # sum of all picsNumber values
+            'starredNumber': 0,  # sum of all picsNumber values
             'creation': 0,  # min of creation values
             'lastDisplay': 0,  # max of lastDisplay values
             'lastStarred': 0,  # max of lastStarred values
             'averageWidth': 0,  # average of all albums
             'averageHeight': 0,  # average of all albums
             'tags': [],  # no tags
-            'starred': []  # starred feature should be disabled with random album
         }
         if len(albums) == 0:
-            starred_album['pictures'] = [os.path.join(*((Conf['server']['assetsPath'] + 'custom/img/star-red.png').split('/')))]
+            starred_album['picturesDetails'] = [{'filename': os.path.join(*((Conf['server']['assetsPath'] + 'custom/img/star-red.png').split('/')))}]
             return starred_album
-        starred_album['pictures'] = sum(
-            ([album['fullPath'] + pic for pic in
-                (album['pictures'][starred] for starred in album['starred'] if starred < len(album['pictures']))]
-             for album in albums if album['fullPath'] != 'random' and album['fullPath'] != 'starred'),
-            [])
-        random.shuffle(starred_album['pictures'])
-        starred_album['pictures'] = [os.path.join(*((Conf['server']['assetsPath'] + 'custom/img/star-red.png').split('/')))] + starred_album['pictures']
+
         starred_album['display'] = sum((album['display'] for album in albums))
-        starred_album['picsNumber'] = len(starred_album['pictures'])
         starred_album['creation'] = time.time()
         starred_album['lastDisplay'] = max((album['lastDisplay'] for album in albums))
         starred_album['lastStarred'] = max((album['lastStarred'] for album in albums))
         starred_album['averageWidth'] = sum((album['averageWidth'] for album in albums)) / len(albums)
         starred_album['averageHeight'] = sum((album['averageHeight'] for album in albums)) / len(albums)
-        starred_album['starred'] = list(range(len(starred_album['pictures'])))  # everything is starred!
+
+        for album in albums:
+            if album['fullPath'] == 'starred' or album['fullPath'] == 'random':
+                continue
+            for pic in album['picturesDetails']:
+                if pic.get('starred', False):
+                    starred_album['picturesDetails'].append({
+                        'filename': (album['fullPath'] + pic['filename']),
+                        'starred': True,
+                        'width': pic.get('width'),
+                        'height': pic.get('height'),
+                        'analyzerVersion': pic.get('analyzerVersion')
+                    })
+
+        random.shuffle(starred_album['picturesDetails'])
+
+        starred_album['picturesDetails'] = [{
+            'filename': os.path.join(*((Conf['server']['assetsPath'] + 'custom/img/star-red.png').split('/'))),
+            'starred': True,
+            'width': 0,
+            'height': 0,
+            'analyzerVersion': None
+        }] + starred_album['picturesDetails']
+
+        starred_album['picsNumber'] = len(starred_album['picturesDetails'])
+        starred_album['starredNumber'] = len(starred_album['picturesDetails'])
+        logging.info("Starred album generated in %s" % timeFormat(time.time() - start))
+
         return starred_album
 
     def find(self, criteria, page=0, item_per_page=0, generator=True, returnCount=False):
@@ -427,3 +483,105 @@ class AlbumService(Service):
         if returnCount:
             return ret, count
         return ret
+
+    def getUnanalyzedAlbums(self, version):
+        """
+        Returns the list of pictures that haven't been analyzed.
+        Each picture will be a dict of the shape {albumId, pictureIdx, path}
+        """
+        albums = self.getAll(orderBy={'creation': -1})
+        res = [
+            {
+                '_id': album['_id'],
+                'name': album['name'],
+                'picturesDetails': [
+                    {
+                        'albumId': album['_id'],
+                        'pictureIdx': picIdx,
+                        'path': album['fullPath'] + pic['filename'],
+                        'filename': pic['filename'],
+                        'version': pic.get('analyzerVersion'),
+                        'albumName': album['name']
+                    }
+                    for picIdx, pic in enumerate(album['picturesDetails'])
+                    if pic.get('analyzerVersion') != version
+                ]
+            }
+            for album in albums if album['fullPath'] not in ['starred', 'random']
+        ]
+        return [album for album in res if len(album['picturesDetails']) > 0]
+
+
+    # does not actuially save the face annotation as this account for too much data for storing in db
+    def setPictureAnalysis(self, albumId, picIdx, version):
+        self._collection.update(
+            {'_id': ObjectId(albumId)},
+            {'$set': {
+                'picturesDetails.%d.analyzerVersion' % picIdx: version,
+            }})
+
+    def saveAlbumAnalysis(self, album, result):
+        analysisPath = Conf['data']['albums']['rootFolder'] + album['fullPath'] + 'analysis.json'
+        with open(analysisPath) as f:
+            json.dump(result, f)
+
+    # picture details are extended after being loaded with analysis information
+    def extendAlbumWithFaces(self, album):
+        albumFaces = None
+        analysisPath = Conf['data']['albums']['rootFolder'] + album['fullPath'] + 'analysis.json'
+        try:
+            with open(analysisPath) as f:
+                albumFaces = json.load(f)
+                if len(albumFaces) != len(album['picturesDetails']):
+                    albumFaces = None
+        except:
+            pass
+
+        # speed up random album face retrieval
+        allfaces = {}
+        cachePath = Conf['data']['albums']['rootFolder'] + 'allfaces.json'
+        if album['fullPath'] == 'random':
+            try:
+                with open(cachePath) as f:
+                    allfaces = json.load(f)
+            except:
+                pass
+
+        for idx, picture in enumerate(tqdm(album['picturesDetails'], desc="[Populating faces")):
+            if picture['filename'] in allfaces:
+                picture['faces'] = allfaces[picture['filename']]
+            if albumFaces is not None:
+                picture['faces'] = albumFaces[idx]['faces']
+            else:
+                picPath = Conf['data']['albums']['rootFolder'] + \
+                    album['fullPath'] + picture['filename']
+                # special case random and starred albums, the picture filename contains the album path
+                if album['fullPath'] in ['starred', 'random']:
+                    picPath = Conf['data']['albums']['rootFolder'] + \
+                        picture['filename']
+                try:
+                    picture['faces'] = AlbumAnalyzer.checkCache(picPath)['faces']
+                except Exception as e:
+                    logging.warn("Unable to retrieve any face data for picture: %s",
+                                 picPath)
+                    picture['faces'] = {}
+
+            if album['fullPath'] == 'random':
+                allfaces[picture['filename']] = picture['faces']
+
+        if album['fullPath'] == 'random':
+            try:
+                with open(cachePath) as f:
+                    json.dump(allfaces, f)
+            except:
+                pass
+
+        return album
+
+    def setPictureDim(self, albumId, picIdx, width, height):
+        self._collection.update(
+            {'_id': ObjectId(albumId)},
+            {'$set': {
+                'picturesDetails.%d.width' % picIdx: width,
+                'picturesDetails.%d.height' % picIdx: height,
+            }})

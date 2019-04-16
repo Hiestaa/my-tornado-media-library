@@ -13,6 +13,21 @@ from conf import Conf
 from config import termColors
 from threading import Lock
 
+import tqdm
+
+class TqdmLoggingHandler (logging.StreamHandler):
+    def __init__ (self, level = logging.NOTSET):
+        super (self.__class__, self).__init__ (level)
+
+    def emit (self, record):
+        try:
+            msg = self.format (record)
+            tqdm.tqdm.write (msg)
+            self.flush ()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)
 
 class ColorFormatter(logging.Formatter):
 
@@ -95,7 +110,7 @@ def init(verbose=0, quiet=False, filename='activity.log', colored=True):
         Formatter = ColorFormatter if colored else logging.Formatter
         formatter = Formatter(
             '%(levelname)s :: %(filename)s :: %(message)s')
-        stream_handler = logging.StreamHandler()
+        stream_handler = TqdmLoggingHandler()
         if verbose is 0:
             stream_handler.setLevel(logging.ERROR)
         elif verbose is 1:

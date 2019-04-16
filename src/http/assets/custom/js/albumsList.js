@@ -7,7 +7,7 @@ $(function () {
         <div class="uk-panel-teaser">\
             <img src="{{cover}}" alt="{{title}}\'s cover" width="100%">\
         </div>\
-        <p class="album-title"><a href="/slideshow/albumId={{_id}}">{{title}} ({{picNb}})</a></p>\
+        <p class="album-title"><a href="/slideshow/albumId={{_id}}">{{title}} ({{starNb}} <i class="uk-icon-star" /> / {{picNb}} <i class="uk-icon-image" />)</a></p>\
     </div>\
 </div>\
 <div class="uk-width-1-3" id="loading-info">\
@@ -19,16 +19,18 @@ $(function () {
                 return spinLoading('stop');
             var i = 0;
             var onPicLoaded = function () {
+                var album = albums[i];
                 $('#albums-list #loading-info').remove();
                 $('#albums-list').append(render(self.albumTemplate, {
-                    cover: albums[i]['picturesURL'][albums[i]['cover']],
-                    title: albums[i]['name'],
-                    _id: albums[i]['_id'],
-                    picNb: albums[i]['picsNumber']
+                    cover: album['picturesDetails'][album['cover']]['url'],
+                    title: album['name'],
+                    _id: album['_id'],
+                    picNb: album['picturesDetails'].length,
+                    starNb: album['picturesDetails'].filter(p => !!p.starred).length
                 }));
                 i += 1;
                 if (i < albums.length)
-                    preloadPictures([albums[i]['picturesURL'][albums[i]['cover']]], onPicLoaded);
+                    preloadPictures([album['picturesDetails'][album['cover']]['url']], onPicLoaded);
                 else
                     $('#albums-list #loading-info').remove();
                 $('#albums-list .album-item').off().click(function (e) {
@@ -36,7 +38,7 @@ $(function () {
                         window.open('/slideshow/albumId=' + $(this).attr('data-album-id'), '_self', false);
                 });
             };
-            preloadPictures([albums[i]['picturesURL'][albums[i]['cover']]], function () {
+            preloadPictures([albums[i]['picturesDetails'][albums[i]['cover']]['url']], function () {
                 spinLoading('stop');
                 onPicLoaded();
             });

@@ -1,0 +1,43 @@
+{% extends base.html %}
+
+{% block content %}
+{% from tools.utils import timeFormat, dateFormat %}
+<div class="uk-grid">
+    <div class="uk-width-1-1">
+        <div id="current-status" class="uk-panel uk-panel-header uk-panel-box">
+            <h2 id="title" class="uk-panel-title">Bulk Video Analysis</h2>
+
+            <p id="description-running" class="hidden">
+                Currently updating: <span id="current-file" class="uk-badge uk-badge-large"></span>, performing: <span id="current-step" class="uk-badge uk-badge-large"></span>
+            </p>
+            <a id="update" class="uk-button uk-button-danger uk-panel-badge hidden">Run Update</a>
+            <a id="interrupt" class="uk-button uk-button-danger uk-panel-badge hidden">Interrupt</a>
+            <p id="description-finished" class="hidden">
+            </p>
+        </div>
+    </div>
+</div>
+<div class="uk-grid">
+    <div class="uk-width-1-1">
+        <table class="uk-table uk-table-hover uk-table-striped" id="table-current">
+            <caption>Videos processed during the current update</caption>
+            <thead>
+                <tr class="uk-table-middle">
+                    <th>File name</th>
+                    <th>Message</th>
+                    <th>Face Time</th>
+                    <th>Face Time Proportion</th>
+                    <th>Face Ratio</th>
+                </tr>
+            </thead>
+            <tbody id="videos-list">
+            </tbody>
+        </table>
+    </div>
+</div>
+<div id="video-analyze-progress"></div>
+{% end %}
+
+{% block js %}
+<script type="text/javascript" src="/assets/custom/js/db-update-status.js"></script>
+{% end %}

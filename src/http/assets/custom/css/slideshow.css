@@ -19,6 +19,9 @@ html, body {
     background-color: black;
 }
 
+.uk-slideshow-fullscreen li > div {
+    /*border: 3px solid white;*/
+}
 
 .uk-slideshow-fullscreen .uk-cover-background {
     background-size: contain;
@@ -170,3 +173,51 @@ html, body {
   content: "\f101";
   font-family: FontAwesome;
 }*/
+
+.focus-marker {
+    position: absolute;
+    width: 1px;
+    border: 2px solid red;
+    height: 1px;
+    z-index: 100;
+    background-color: red;
+    top: 0;
+    left: 0;
+}
+
+.face-frame {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border: 2px solid blue;
+    top: 0;
+    left: 0;
+}
+
+.landsmark-marker {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    border: 2px solid green;
+    z-index: 100;
+    background-color: green;
+    top: 0;
+    left: 0;
+}
+.focus-marker,
+.face-frame,
+.landsmark-marker {
+    opacity: 0.1;
+}
+
+.focus-marker.visible,
+.face-frame.visible,
+.landsmark-marker.visible {
+    opacity: 0.6;
+}
+
+.focus-marker.invisible,
+.face-frame.invisible,
+.landsmark-marker.invisible {
+    opacity: 0;
+}

@@ -72,6 +72,7 @@ class SegmentCandidateGenerator(object):
     def _getAnalysisData(self, video):
         snapshotsFolder = '%s%s' % (BASE_PATH, video['snapshotsFolder'])
         minividFolder = MinividGenerator.buildMinividFolderPath(self._workspace, snapshotsFolder)
+        # FIXME: grab the analysis data from the snapshot folder
         jsonPath = os.path.join(minividFolder, 'analysis_gcv_pp.json')
 
         try:
@@ -81,6 +82,7 @@ class SegmentCandidateGenerator(object):
             raise Exception("Unable to load pp analysis data from file: %s" % (jsonPath))
 
     def _getFrameDelay(self,  video):
+        # FIXME: get frame delay from the video analysis aggregation duration and frame count
         snapshotsFolder = '%s%s' % (BASE_PATH, video['snapshotsFolder'])
         minividFolder = MinividGenerator.buildMinividFolderPath(self._workspace, snapshotsFolder)
         fps = MinividGenerator.getMinividFPS(minividFolder)
@@ -88,6 +90,7 @@ class SegmentCandidateGenerator(object):
         return fdelay
 
     def _segmentStartCriteria(self, annotation):
+        # TODO: face -> faces and other gcv to dfl field conversion
         return len(annotation['face']) > 0
 
     def _segmentEndCriteria(self, annotation):
@@ -293,7 +296,7 @@ class SegmentsSelector(object):
     def __init__(self, candidates, duration=600, strategy=None, reorder=None,
                  crossfadeDuration=10, **kwargs):
         super(SegmentsSelector, self).__init__()
-        logging.info("Initializing SegmentsSelector(duration=%d, strategy=%s",
+        logging.info("Initializing SegmentsSelector(duration=%d, strategy=%s)",
                      duration, str(strategy))
         self.candidates = candidates
         self.duration = duration

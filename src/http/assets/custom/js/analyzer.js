@@ -42,7 +42,7 @@ $(function () {
                 <button class="uk-button uk-button-danger hidden" id="clean-up" title="Clean-up generated images and close the modal data-uk-tooltip="{pos: \'top-right\'}">Clean-up</button>\
             </div>\
         </h1>\
-        <p>A visualization of the progress of the analysis will appear below.</p>\
+        <h4 id="subtitle">A visualization of the progress of the analysis will appear below.</h4>\
         <div id="board-container">\
             <!-- If the annotations are off, it may be that these dimensions are not matching the ones defined in the config -->\
             <img class="default-size" id="image-board" src="{{thumbnail}}"></img>\
@@ -122,6 +122,7 @@ $(function () {
             self.$overtime = self.$view.find('#overtime');
             self.$averageFaceRatio = self.$view.find('#average-face-ratio');
             self.$faceTime = self.$view.find('#average-face-time-ratio');
+            self.$subtitle = self.$view.find('#subtitle');
             self.show();
         }
 
@@ -266,6 +267,7 @@ $(function () {
             var frame = data.frame;
             var msg = "Executing action: displayFrame, frame#" + frame;
             // console.log(msg, data);
+            self.$subtitle.html(data.step || self.$subtitle.html());
             self.$detailsBoard.html(msg);
             self._imageCanvasCtx.drawImage(data.preloadImage, 0, 0);
             self.$frame.text(frame)
@@ -485,22 +487,52 @@ $(function () {
         }
 
         self._faceDetectionConfidence = [];
+        self._faceDetectionConfidencePP = [];
         self._faceDetectionFrameToStepId = {};
-        self._displayFaceDetectionConfidence = function(frame, faceDetectionConfidence, stepId) {
+        self._displayFaceDetectionConfidence = function(frame, faceDetectionConfidence, stepId, isPP) {
             faceDetectionConfidence = parseInt(faceDetectionConfidence * 10000) / 10000.0;
-            if (frame < self._faceDetectionConfidence.length &&
+            if (!isPP && frame < self._faceDetectionConfidence.length &&
                 self._faceDetectionConfidence[frame] == faceDetectionConfidence) { return; }
+            if (isPP && frame < self._faceDetectionConfidencePP.length &&
+                self._faceDetectionConfidencePP[frame] == faceDetectionConfidence) { return; }
 
             while (frame >= self._faceDetectionConfidence.length) {
                 self._faceDetectionConfidence.push(0);
             }
-            self._faceDetectionConfidence[frame] = faceDetectionConfidence;
+            while (frame >= self._faceDetectionConfidencePP.length) {
+                self._faceDetectionConfidencePP.push(0);
+            }
+            if (isPP) {
+                self._faceDetectionConfidencePP[frame] = faceDetectionConfidence
+            }
+            else {
+                self._faceDetectionConfidence[frame] = faceDetectionConfidence;
+                self._faceDetectionConfidencePP[frame] = faceDetectionConfidence
+            }
+            var max = Math.max.apply(null, self._faceDetectionConfidence);
+            var min = Math.min.apply(null, self._faceDetectionConfidence);
+            var ppmax = Math.max.apply(null, self._faceDetectionConfidencePP);
+            var ppmin = Math.min.apply(null, self._faceDetectionConfidencePP);
             self._faceDetectionFrameToStepId[frame] = stepId;
             self.$view.find('#face-detection-confidence').sparkline(self._faceDetectionConfidence, {
                 type: 'line',
                 width: '98%',
-                height: '50px'
+                height: '50px',
+                chartRangeMin: Math.min(min, ppmin),
+                chartRangeMax: Math.max(max, ppmax)
             });
+
+            self.$view.find('#face-detection-confidence').sparkline(self._faceDetectionConfidencePP, {
+                type: 'line',
+                width: '98%',
+                height: '50px',
+                chartRangeMin: Math.min(min, ppmin),
+                chartRangeMax: Math.max(max, ppmax),
+                composite: true,
+                lineColor: 'red',
+                fillColor: 'rgba(220, 30, 90, 0.5)'
+            });
+
             self.$view.find('#face-detection-confidence').bind(
                 'sparklineRegionChange',
                 (ev) => self._onSparklineRegionChange(ev, self._faceDetectionFrameToStepId));
@@ -508,6 +540,7 @@ $(function () {
 
         self.displayAnnotationRaw = function (data, stepId) {
             self._clearCanvas();
+            self.$subtitle.html(data.step || self.$subtitle.html());
             var filename = data.annotation.name;
             var frame = data.frame;
             self.$frame.text(frame)
@@ -589,6 +622,7 @@ $(function () {
             var frame = data.frame;
             self.$frame.text(frame)
             var annotation = data.annotation;
+            self.$subtitle.html(data.step || self.$subtitle.html());
             var msg = (
                 "Executing action: displayAnnotationPP, frame#" + frame +
                 ", file:" + filename + '<br />' +
@@ -597,14 +631,19 @@ $(function () {
             self._imageCanvasCtx.drawImage(data.preloadImage, 0, 0);
 
             var confidence = 0;
+            var alteredConfidence = 0;
             if (annotation.faces) {
                 annotation.faces.map(self._displayFace);
                 if (annotation.faces.length > 0) {
                     confidence = annotation.faces.reduce(function (acc, itm) {
                         return acc + itm.detection_confidence
-                    }, 0) / annotation.faces.length;
+                    }, 0);
+                    alteredConfidence = annotation.faces.reduce(function (acc, itm) {
+                        return acc + itm.altered_detection_confidence
+                    }, 0);
                 }
                 self._displayFaceDetectionConfidence(frame, confidence, stepId);
+                self._displayFaceDetectionConfidence(frame, alteredConfidence, stepId, true);
             }
             if (annotation.crop) {
                 annotation.crop.map(self._displayCrop);
@@ -616,6 +655,7 @@ $(function () {
             var msg = "Executing action: displayResult"
             // console.log(msg, data);
             self.$detailsBoard.html(msg);
+            self.$subtitle.html(data.step || self.$subtitle.html());
             self.$averageFaceRatio.html(
                 '<span style="padding-left: 10px" class="small">Average: </span>' +
                 '<span class="uk-badge uk-badge-success">' +
@@ -674,6 +714,9 @@ $(function () {
             self._imageCanvasCtx.clearRect(0, 0, self._imageCanvas.width, self._imageCanvas.height);
             self.$view.find('#board-container #step-reverse').removeClass('hover');
             self.$frame.text(0)
+            self._faceDetectionConfidencePP = [];
+            self._faceDetectionConfidence = [];
+            self._faceRatios = [];
         }
 
         self.initialize();

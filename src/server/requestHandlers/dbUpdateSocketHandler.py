@@ -38,6 +38,7 @@ class DbUpdateSocketHandler(WebSocketHandler):
         updater = memory.getVal(MEMKEY)
         updater.stop()
         updater.join()
+        memory.setVal(MEMKEY, None)
 
     def on_progress(self, status):
         # save the progress status in memory so the db update status handler can access it when refreshing the page

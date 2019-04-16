@@ -20,9 +20,26 @@ from server import model
 
 BASE_PATH = Conf['data']['videos']['rootFolder']
 
+def getCachePath(imagePath, annotator):
+    cachePath = imagePath.replace('.png', "_%s_raw.json" % annotator)
+    cachePath = cachePath.replace('.jpg', "_%s_raw.json" % annotator)
+    cachePath = cachePath.replace('.jpeg', "_%s_raw.json" % annotator)
+    return cachePath
+
 def extract_image_num(string):
-    match = re.search('%s(\d+)' % MinividGenerator.MINIVID_PREFIX, string)
-    return int(match[1])
+    match = re.search(r'%s(\d+)' % MinividGenerator.MINIVID_PREFIX, string)
+    if match is not None:
+        return int(match[1])
+    else:
+        return string
+
+def checkCache(imagePath, annotator):
+    cachePath = getCachePath(imagePath, annotator)
+    with open(cachePath, 'r') as cacheFile:
+        cacheData = json.load(cacheFile)
+        if len(cacheData) == 0:
+            raise ValueError("Empty cache")
+        return cacheData
 
 class BaseAnnotator(object):
     supportReportingProgress = False
@@ -31,7 +48,7 @@ class BaseAnnotator(object):
     as well as utility methods such as caching and batching.
     This doesn't perform any analysis on its own.
     """
-    def __init__(self, name, batchSize, imgPaths, progress):
+    def __init__(self, name, batchSize, imgPaths, progress=None):
         super(BaseAnnotator, self).__init__()
         self.imgPaths = list(sorted(set(imgPaths), key=extract_image_num))  # don't query the same image twice
         self.BATCH_SIZE = batchSize
@@ -53,24 +70,17 @@ class BaseAnnotator(object):
         Raises `ValueError` or `IOError` if the no cache data can be found
         Returns the result (note: already serialized) otherwise
         """
-        cachePath = imagePath.replace('.png', "_%s_raw.json" % self.name)
-        cachePath = cachePath.replace('.jpg', "_%s_raw.json" % self.name)
-        with open(cachePath, 'r') as cacheFile:
-            cacheData = json.load(cacheFile)
-            if len(cacheData) == 0:
-                raise ValueError("Empty cache")
-            return cacheData
+        return checkCache(imagePath, self.name)
 
     def _cache(self, imagePath, serializedData, frameNumber):
         """
         Dump the serialized result into a json file sepecific to the given image.
         """
-        cachePath = imagePath.replace('.png', "_%s_raw.json" % self.name)
-        cachePath = cachePath.replace('.jpg', "_%s_raw.json" % self.name)
+        cachePath = getCachePath(imagePath, self.name)
         try:
             with open(cachePath, 'w') as cacheFile:
                 json.dump(serializedData, cacheFile)
-        except Exception as e:
+        except:
             logging.error("Unable to dump %s result on disk." % self.name)
             pass
 
@@ -78,7 +88,7 @@ class BaseAnnotator(object):
         # we haven't reported about any of the non-cached result of this batch.
         # Do it now as we're caching these. We're not at risk double reporting,
         # but we might not garantee the order of the frame is gonna be preserved.
-        if not self.supportReportingProgress:
+        if not self.supportReportingProgress and self.progress is not None:
             self.progress(frameNumber, serializedData)
 
         return serializedData
@@ -111,7 +121,8 @@ class BaseAnnotator(object):
         cacheData = self.resultCache[imagePath]
         duration = time.time() - self.lastProgressCall
         self.lastProgressCall = time.time()
-        self.progress(cacheData['frame'], self._extendAnnotation(data, imagePath, duration))
+        if self.progress is not None:
+            self.progress(cacheData['frame'], self._extendAnnotation(data, imagePath, duration))
 
     def nextBatch(self):
         """
@@ -128,7 +139,7 @@ class BaseAnnotator(object):
         # {<imagePath>: {'data': <cached data, if available>, 'index': <response index, otherwise>, 'frame': <frame number>}}
         self.resultCache = {}
 
-        while len(self.imgPaths) > 0 and len(currentBatch) < self.BATCH_SIZE:
+        while len(self.imgPaths) > 0 and len(fullBatch) < self.BATCH_SIZE:
             imagePath = self.imgPaths.pop(0)
             fullBatch.append(imagePath)
             # check cache existence
@@ -151,11 +162,14 @@ class BaseAnnotator(object):
             duration = time.time() - start_batch
             logging.debug("Received %d responses (duration: %.3fs)",
                           len(annotations), duration)
+        else:
+            logging.debug("All annotation retrieved from cache.")
 
         if self._stopped:
             return []
 
         if len(annotations) < len(currentBatch):  # can't happen if current batch is empty ;)
+            self.stop()
             raise Exception('Missed %d annotation responses in current batch. Aborting.' % (len(currentBatch) - len(annotations)))
 
         return [
@@ -174,7 +188,6 @@ class BaseAnnotator(object):
         JSON-compatible object to which some additional information have been added
         (file name, full file path, generation date / time and duration)
         """
-        results = {}
         batchNb = 0
         nbImages = len(self.imgPaths)
         nbBatches = math.ceil(nbImages / self.BATCH_SIZE)

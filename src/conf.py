@@ -46,14 +46,16 @@ Conf = {
             'rootFolder': '%s\\data\\videos\\' % os.getcwd(),
             'allowedTypes': ['avi', 'mkv', 'flv', 'mpg', 'mp4', 'wmv', 'mov', 'm4v', 'm4a', '3gp'],
             'displayPerPage': 9,
+            'annotator': 'dfl-dlib'
         },
         'albums': {
             'rootFolder': '%s\\data\\photos\\' % os.getcwd(),
-            'allowedTypes': ['png', 'jpg', 'jpeg']
+            'allowedTypes': ['png', 'jpg', 'jpeg'],
+            'annotator': 'dfl-dlib'
         },
         # where temporary files are gonna be stored - to facilitate mass clean up
         'workspace': {
-            'path': '%s\\workspace\\' % os.getcwd(),
+            'path': 'C:\\tmp\\frames',
             'usageWarning': 800,  # in GB
             'usageLimit': 1000   # in GB
         }
@@ -67,8 +69,10 @@ Conf = {
             ],
             'minifyOnDebug': False
         },
-        'playVideosVLC': True,
+        'playVideosVLC': False,
         'vlcPath': "%s\\_internal\\bin\\VLC\\vlc.exe" % os.getcwd(),
+        'playVideosMPC': True,
+        'mpcPath': "C:\\Program Files\\MPC-BE x64\\mpc-be64.exe",
         'templatePath': 'src/http/templates/',
         'assetsPath': 'src/http/assets/'
     }

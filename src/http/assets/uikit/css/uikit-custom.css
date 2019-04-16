@@ -4319,6 +4319,13 @@ a.uk-thumbnail:focus {
 .uk-animation-scale {
   -webkit-animation-name: uk-scale-12;
   animation-name: uk-scale-12;
+  -webkit-font-smoothing: subpixel-antialiased;
+  backface-visibility: hidden;
+}
+
+.uk-animation-scale {
+  -webkit-animation-timing-function: ease-out !important;
+  animation-timing-function: ease-out !important;
 }
 .uk-animation-shake {
   -webkit-animation-name: uk-shake;
@@ -4331,8 +4338,8 @@ a.uk-thumbnail:focus {
   animation-timing-function: ease-in;
 }
 .uk-animation-15 {
-  -webkit-animation-duration: 8s;
-  animation-duration: 8s;
+  -webkit-animation-duration: 19s;
+  animation-duration: 19s;
 }
 .uk-animation-top-left {
   -webkit-transform-origin: 0 0;
@@ -4595,18 +4602,38 @@ a.uk-thumbnail:focus {
 }
 @-webkit-keyframes uk-scale-12 {
   0% {
-    -webkit-transform: scale(2);
+    -webkit-transform: scale(3.0); /* edited */
   }
   100% {
-    -webkit-transform: scale(1);
+    -webkit-transform: scale(0.95); /* edited */
   }
 }
-@keyframes uk-scale-12 {
+@keyframes uk-scale-12 { /* edited */
   0% {
-    transform: scale(1.5);  /* edited */
+    transform: scale(3.0);  /* edited */
   }
   100% {
-    transform: scale(1);
+    transform: scale(0.95);  /* edited */
+  }
+}
+@keyframes uk-scale-cus { /* custom */
+  0% {
+    transform: scale(3.0);
+  }
+  20% {
+    transform: scale(2.0);
+  }
+  40% {
+    transform: scale(1.5);
+  }
+  60% {
+    transform: scale(1.3);
+  }
+  80% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(0.8);
   }
 }
 @-webkit-keyframes uk-rotate {

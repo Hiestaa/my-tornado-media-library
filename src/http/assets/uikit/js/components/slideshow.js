@@ -222,6 +222,8 @@
                     $this.trigger('uk.slideshow.show', [index, dir]);   // edited
                 };
 
+            $this.trigger('uk.slideshow.beforeshow', [index, direction || dir]);   // edited
+
             $this.applyKenBurns(next);
 
             // animation fallback

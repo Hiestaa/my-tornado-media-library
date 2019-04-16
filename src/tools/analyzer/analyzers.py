@@ -20,6 +20,7 @@ from tqdm import tqdm
 #     print("ERROR: Unable to load Google Cloud Vision Annotator. Annotator 'gcv' will be unavailable.")
 #     traceback.print_exc()
 from tools.analyzer.unavailableAnnotator import UnavailableAnnotator as GCVAnnotator
+from tools.analyzer.baseAnnotator import checkCache
 
 try:
     from tools.analyzer.dflAnnotator import MTDFLAnnotator
@@ -37,17 +38,11 @@ Annotators = {
     'gcv': GCVAnnotator
 }
 
-class MinividAnalyzer(object):
-    """
-    Use a `BatchImageAnnotator` instance to annotate each frame of the minivid
-    that is expected to be generated already
-    """
-    def __init__(self, minividFolder, annotator, progress):
-        super(MinividAnalyzer, self).__init__()
-        self._minividFolder = minividFolder
-        self._images = [os.path.join(self._minividFolder, img)
-                        for img in os.listdir(self._minividFolder)
-                        if img.endswith('.png')]
+class AlbumAnalyzer(object):
+    __version__ = '0.0.8'
+    def __init__(self, imgPaths, annotator, progress=None):
+        super(AlbumAnalyzer, self).__init__()
+        self._imgPaths = imgPaths
         self.annotator = annotator
         self.annotatorInstance = None
         self.progress = progress
@@ -56,7 +51,7 @@ class MinividAnalyzer(object):
         self.annotatorInstance.stop()
 
     def __len__(self):
-        return len(self._images)
+        return len(self._imgPaths)
 
     def __call__(self):
         """
@@ -65,22 +60,37 @@ class MinividAnalyzer(object):
         or, if it doesn't support real-time progress reporting, at the end of each batch.
         Note that due to caching, real time progress might not be provided in the exact order of the frames
         """
-        BatchImageAnnotator = Annotators[self.annotator] if self.annotator in Annotators else DFLAnnotator
+        BatchImageAnnotator = Annotators[self.annotator] if self.annotator in Annotators else DLIBDFLAnnotator
         """
         Successively yield GCV results for each image found in the minivid folder
         Only *.png files will be processed (minivid generator is expected to generate png files)
         Call `len(analyzer)` to get the number of items expected to be generated in advance.
         """
-        self.annotatorInstance = BatchImageAnnotator(self._images, self.progress)
+        self.annotatorInstance = BatchImageAnnotator(self._imgPaths, self.progress)
         for result in self.annotatorInstance():
             yield result
+
+    @staticmethod
+    def checkCache(filePath):
+        annotator = Conf['data']['albums']['annotator']
+        return checkCache(filePath, annotator)
+
+class MinividAnalyzer(AlbumAnalyzer):
+    """
+    Use a `BatchImageAnnotator` instance to annotate each frame of the minivid
+    that is expected to be generated already
+    """
+    def __init__(self, minividFolder, annotator, progress):
+        imgPaths = [os.path.join(minividFolder, img)
+                        for img in os.listdir(minividFolder)
+                        if img.endswith('.png')]
+        super(MinividAnalyzer, self).__init__(imgPaths, annotator, progress)
 
 class AnalysisPostProcessor(object):
     """
     Performs the post-processing of the analysis results
     in the context of frames extracted from a video
     """
-    __version__ = '0.0.1'
     def __init__(self, results):
         """
         Build the post-processor to process the given results.
@@ -217,7 +227,7 @@ class AnalysisPostProcessor(object):
 
         return currentFrameData
 
-    FLICKERING_CONTEXT_LEN = 3
+    FLICKERING_CONTEXT_LEN = 5
     def _markFlickeringFaces(self, context, frameI, contextStart, contextEnd, previousFramePP):
         """
         Returns the list of faces data found in `currentFrameData` marked with an additional `flickering` field
@@ -257,8 +267,8 @@ class AnalysisPostProcessor(object):
 
         return currentFrameData
 
-    GIGGLING_CONTEXT_LEN = 10
-    GIGGLING_ALLOWANCE = 15
+    GIGGLING_CONTEXT_LEN = 5
+    GIGGLING_ALLOWANCE = 25
     def _markGigglingLandmarks(self, context, frameI, contextStart, contextEnd, previousFramePP):
         """
         Returns the list of face data found in `context[frameI]` marked with an additional `giggling` field
@@ -281,8 +291,9 @@ class AnalysisPostProcessor(object):
             return sum(face['landmarks'][lk][dim] - face['boundaries'][0][dim]
                        for face in faces) / len(faces)
 
-        faces = [face for annotation in context for face in annotation['faces']]
         for face in currentFrameData['faces']:
+            faces = [otherface for annotation in context for otherface in annotation['faces']
+                     if otherface['id'] == face['id']]
             faceWidth = abs(face['boundaries'][1]['x'] - face['boundaries'][0]['x'])
             faceHeight = abs(face['boundaries'][1]['y'] - face['boundaries'][0]['y'])
 
@@ -321,11 +332,24 @@ class AnalysisPostProcessor(object):
     def _finalize(self, context, frameI, contextStart, contextEnd, previousFramePP):
         currentFrameData = dict(**context[frameI])
 
+        for face in currentFrameData['faces']:
+            alteredConfidence = face['detection_confidence']
+            if face.get('flickering'):
+                alteredConfidence = 0.3 * alteredConfidence
+
+            stableLandmarksProportion = 1.0 if len(face['landmarks']) == 0 else sum(
+                0 if lm.get('giggling') else 1
+                for lm in face['landmarks']) /\
+                float(len(face['landmarks']))
+
+
+            alteredConfidence = stableLandmarksProportion * alteredConfidence
+            face['altered_detection_confidence'] = alteredConfidence
+
         return extends(
             currentFrameData,
             contextStart=contextStart, contextStartFile=context[0]['name'],
             contextEnd=contextEnd, contextEndFile=context[-1]['name'],
-            postProcessorVersion__=AnalysisPostProcessor.__version__,
             faceRatio=self._computeFaceRatio(context[frameI]['faces']))
 
 
@@ -370,8 +394,8 @@ class AnalysisPostProcessor(object):
     def __call__(self):
         processors = [
             ('Mark Flickering Faces', self._markFlickeringFaces),
-            ('Mark Giggling Landmarks', self._markGigglingLandmarks),
             ('Identify Faces', self._identifyFaces),
+            ('Mark Giggling Landmarks', self._markGigglingLandmarks),
             ('Smooth Face Positions', self._getSmoothedFaces),
             ('Finalization', self._finalize)
         ]
@@ -395,33 +419,31 @@ class AnalysisPostProcessor(object):
 class AnalysisAggregator(object):
     """
     Aggregates all frame analysis results into a single object with the following properties:
-    * `__version__` version of the aggregator used to generate this aggretation
     * `averageFaceRatio`: average ratio between detected covering face surface and image size
     * `faceTime`: number of frames holding a face
     * `faceTimeProp`: proportion of frames holding a face
     * ...
     """
-    __version__ = '0.0.1'
     def __init__(self, results, start_t):
         super(AnalysisAggregator, self).__init__()
         self._results = results
         self._start_t = start_t
 
-    def __call__(self):
+    def __call__(self, version):
         if len(self._results) == 0:
             raise Exception('No result to aggregate!')
         logging.info("Aggregating %d results..." % len(self._results))
+
+        sums = [0, 0]
+        for itm in tqdm(self._results, desc="[Aggregating results"):
+            sums[0] += itm['faceRatio']
+            sums[1] += 1.0 if len(itm['faces']) > 0 else 0.0
+
         return {
-            '__version__': AnalysisAggregator.__version__,
-            'averageFaceRatio': sum(
-                itm['faceRatio'] for itm in self._results
-                if itm['faceRatio'] != 0) / len(self._results) * 100,
-            'faceTime': sum(
-                1.0 if len(itm['faces']) > 0 else 0.0
-                for itm in self._results),
-            'faceTimeProp': sum(
-                1.0 if len(itm['faces']) > 0 else 0.0
-                for itm in self._results) / len(self._results) * 100,
+            '__version__': version,
+            'averageFaceRatio': float(sums[0]) / len(self._results) * 100,
+            'faceTime': sums[1],
+            'faceTimeProp': float(sums[1]) / len(self._results) * 100,
             'duration': time.time() - self._start_t,
             'nbFrames': len(self._results)
         }

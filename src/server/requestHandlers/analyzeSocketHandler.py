@@ -9,10 +9,11 @@ import logging
 from tornado.websocket import WebSocketHandler
 from tornado.ioloop import IOLoop
 
+from conf import Conf
 from tools.analyzer import Analyzer
 from server import memory, model
 
-MEMKEY = 'video-analyzer';
+MEMKEY = 'video-analyzer'
 
 class AnalyzeSocketHandler(WebSocketHandler):
     """
@@ -20,7 +21,7 @@ class AnalyzeSocketHandler(WebSocketHandler):
     Note: named for consistency as this file is highly specific for now.
     If ever extending the features using websockets on the video page
     (where this socket is used notably), if should be made more generic
-    as we can only have a small number of simulateous websockets on the same page.
+    as we can only have a small number of simultaneous websockets on the same page.
     """
     def callback(self, videoId, result):
         # executed on the `Analyzer` thread, does nothing but scheduling a callback
@@ -50,7 +51,8 @@ class AnalyzeSocketHandler(WebSocketHandler):
         logging.info("Starting analysis of video: %s", video['name'])
         analyzer = Analyzer(
             videoId, video['path'], video['snapshotsFolder'],
-            progressCb=self.callback, force=force, annotator='dfl-dlib',
+            progressCb=self.callback, force=force,
+            annotator=Conf['data']['videos']['annotator'],
             videoDuration=video['duration'])
         analyzer.start()
         memory.setVal(MEMKEY, analyzer)
@@ -101,7 +103,7 @@ class AnalyzeSocketHandler(WebSocketHandler):
                 'clean-up': self.cleanup
             }[message['action']](**message)
         except Exception as e:
-            logging.error("Error while executig action for message %s", message)
+            logging.error("Error while executing action for message %s", message)
             logging.exception(e)
             self.on_analysis_progress(None, {'error': repr(e)})
 

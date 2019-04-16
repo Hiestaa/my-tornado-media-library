@@ -66,6 +66,26 @@ class VideoService(Service):
         self._collection.ensure_index(
             [('path', DESCENDING)],
             name="video_path_uq_idx", unique=True)
+        self._collection.ensure_index(
+            [('duration', DESCENDING)], name="video_duration_idx")
+        self._collection.ensure_index(
+            [('favorite', DESCENDING)], name="video_favorite_idx")
+        self._collection.ensure_index(
+            [('display', DESCENDING)], name="video_display_idx")
+        self._collection.ensure_index(
+            [('seen', DESCENDING)], name="video_seen_idx")
+        self._collection.ensure_index(
+            [('fps', DESCENDING)], name="video_fps_idx")
+        self._collection.ensure_index(
+            [('creation', DESCENDING)], name="video_creation_idx")
+        self._collection.ensure_index(
+            [('lastTagged', DESCENDING)], name="video_lastTagged_idx")
+        self._collection.ensure_index(
+            [('lastDisplay', DESCENDING)], name="video_lastDisplay_idx")
+        self._collection.ensure_index(
+            [('lastSeen', DESCENDING)], name="video_lastSeen_idx")
+        self._collection.ensure_index(
+            [('lastFavorite', DESCENDING)], name="video_lastFavorite_idx")
 
     def schema(self):
         return {
@@ -191,7 +211,7 @@ class VideoService(Service):
         self._collection.update(select, update, multi=True)
 
     def set(self, _id, field, value):
-        print('videoService.set(', _id, field, value)
+        logging.debug('videoService.set(%s, %s, %s)', str(_id), str(field), str(value))
         if field == 'thumbnail' and not isinstance(value, int):
             logging.error("Video %s's thumbnail has been set to a non-integer value!" % (value))
 

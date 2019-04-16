@@ -7,12 +7,14 @@ import subprocess
 import time
 import logging
 from threading import Thread, Event
+from tqdm import tqdm
 import re
 
 import cv2
 from PIL import Image
 
-from tools.utils import extends
+from tools.utils import extends, timeFormat
+from tools.analyzer.analyzers import AlbumAnalyzer
 from server import model
 from conf import Conf
 
@@ -88,7 +90,7 @@ class Walker(Thread):
             self._progress['errorred'] = True
             self._send_progress()
 
-    def run(self):
+    def _run(self):
         # reinit progress informations
         self._start_t = time.time()
         self._progress = extends(
@@ -126,6 +128,9 @@ class Walker(Thread):
             Conf['data']['albums']['allowedTypes']
         )
 
+        # self.__fix_albums_dimensions()
+        self.__albums_analysis()
+
         self._progress['duration'] = time.time() - self._start_t
         self._progress['finished'] = True
         self._send_progress()
@@ -151,10 +156,16 @@ class Walker(Thread):
         logging.debug("Checking existence of the image.")
         logging.debug(">> data: %s" % str(data))
         self._progress['file'] = data['album']
+        albumPath = os.path.dirname(imgPath).replace(
+            Conf['data']['albums']['rootFolder'], '')
+
         found = model.getService('album').getByRealName(data['album'])
         if found is None:
+            found = model.getService('album').getByPath(albumPath + os.path.sep)
+
+        if found is None:
             data = extends(data, album_exist=False, picture_exist=False, album_id=None)
-        elif os.path.basename(imgPath) in found['pictures']:
+        elif any(os.path.basename(imgPath) == pic['filename'] for pic in found['picturesDetails']):
             data = extends(data, album_exist=True, picture_exist=True, album_id=found['_id'])
         else:
             data = extends(data, album_exist=True, picture_exist=False, album_id=found['_id'])
@@ -185,11 +196,15 @@ class Walker(Thread):
             nb = found['picsNumber']
             data = extends(
                 data,
+                width=w,
+                height=h,
                 averageWidth=((avgW * nb + w) / (nb + 1)),
                 averageHeight=((avgH * nb + h) / (nb + 1)))
         else:
             data = extends(
                 data,
+                width=w,
+                height=h,
                 averageWidth=w,
                 averageHeight=h)
 
@@ -213,10 +228,17 @@ class Walker(Thread):
                 _id=data['album_id'], field='averageWidth', value=data['averageWidth'])
             model.getService('album').set(
                 _id=data['album_id'], field='averageHeight', value=data['averageHeight'])
-            model.getService('album').addPicture(data['album_id'], os.path.basename(imgPath))
+            model.getService('album').addPicture(data['album_id'], os.path.basename(imgPath), data['width'], data['height'])
         else:
             _id = model.getService('album').insert(
-                album=data['album'], fullPath=os.path.dirname(imgPath), pictures=[os.path.basename(imgPath)],
+                album=data['album'], fullPath=os.path.dirname(imgPath), picturesDetails=[{
+                    'filename': os.path.basename(imgPath),
+                    'width': data['width'],
+                    'height': data['height'],
+                    'analyzerVersion': None,
+                    'starred': False,
+                    'display': 0
+                }],
                 averageWidth=data['averageWidth'], averageHeight=data['averageHeight'])
             data = extends(data, inserted_id=_id)
 
@@ -265,6 +287,116 @@ class Walker(Thread):
                 fileObj['snapshot'] = '/download/album/' + data['inserted_id'] + '/0'
             self._progress['fileList'].append(fileObj)
         return data
+
+    def __fix_albums_dimensions(self):
+        albums = model.getService('album').getAll()
+        start_t = time.time()
+        logging.info("Verifying %d existing albums", len(albums))
+        toDelete = []
+        c = 0
+        for album in tqdm(albums, desc="[Albums"):
+            if album['fullPath'] in ['starred', 'random']:
+                continue
+
+            for picIdx, pic in enumerate(tqdm(album['picturesDetails'], desc="[Pictures")):
+                c += 1
+                imgPath = Conf['data']['albums']['rootFolder'] + album['fullPath'] + pic['filename']
+                try:
+                    f = Image.open(imgPath)
+                    w, h = f.size
+                    model.getService('album').setPictureDim(album['_id'], picIdx, w, h)
+                except:
+                    logging.error("Unable to open file: %s", imgPath)
+                    toDelete.append((album['_id'], picIdx))
+
+        logging.info("Verified %d pictures in %s. %d Staged for delete.",
+                     c, timeFormat(time.time() - start_t), len(toDelete))
+
+
+    def __albums_analysis(self):
+        albums = model.getService('album').getUnanalyzedAlbums(AlbumAnalyzer.__version__)
+        logging.info("Preparing dataset for face detection (%d albums to process)", len(albums))
+        start_t = time.time()
+        self._progress['step'] = 'Missing Album Face Detection'
+        self._progress['file'] = Conf['data']['albums']['rootFolder']
+        self._send_progress()
+        totalFaces = 0
+        progressBar = tqdm(total=len(albums), desc='[Albums Analysis')
+        for album in albums:
+            progressBar.set_description('[Analysing album %s' % album['name'])
+            progressBar.update()
+
+            pictures = album['picturesDetails']
+            # filter the list of pictures down to only the ones we manage to open with opencv
+            # (these would fail during analysis anyway so better filter them out now)
+            imgPaths = []
+            retainedPictures = []
+            for pic in tqdm(pictures, desc="[Pre-Filtering "):
+                filename = Conf['data']['albums']['rootFolder'] + pic['path']
+                try:
+                    # image = cv2.imread(filename)
+                    # if image is None:
+                    #     raise IOError('Unable to read image: %s' % filename)
+                    retainedPictures.append(pic)
+                    imgPaths.append(filename)
+                except Exception as e:
+                    logging.error("Unable to open image `%s' with opencv2." % (pic['path']))
+                    logging.exception(e)
+                    # model.getService('album').removePicture(pic['albumId'], pic['pictureIdx'])
+
+            # called whenever an image is processed
+            def progress(idx, annotation, render=False):
+                filepath = imgPaths[idx]
+                self._progress['file'] = filepath
+                if not render:
+                    return
+
+                COLORS = [
+                    (0, 255, 0),
+                    (0, 0, 255),
+                    (255, 0, 0),
+                    (255, 255, 0),
+                    (255, 0, 255),
+                    (0, 255, 255),
+                    (0, 0, 0),
+                    (255, 255, 255)
+                ]
+                title = retainedPictures[idx]['path']
+                image = cv2.imread(filepath)
+                for fidx, face in enumerate(annotation['faces']):
+                    x = face['boundaries'][0]['x']
+                    y = face['boundaries'][0]['y']
+                    x2 = face['boundaries'][1]['x']
+                    y2 = face['boundaries'][1]['y']
+                    cv2.rectangle(image, (x, y), (x2, y2), COLORS[fidx % len(COLORS)], 5)
+
+                    for landmark in face.get('landmarks', []):
+                        x = landmark['x']
+                        y = landmark['y']
+
+                        cv2.circle(image, (x, y), 5, COLORS[fidx % len(COLORS)], 5)
+
+                small = cv2.resize(image, (0,0), fx=0.2, fy=0.2)
+                cv2.imshow(title, small)
+                cv2.waitKey(0)
+
+            # perform the analysis
+            logging.debug("Performing missing face detection for %d pictures", len(retainedPictures))
+            analyzer = AlbumAnalyzer(
+                imgPaths=imgPaths, annotator=Conf['data']['albums']['annotator'], progress=progress)
+            res = analyzer()
+            albumsResults = []
+            for idx, annotation in enumerate(res):
+                albumsResults.append(res)
+                totalFaces += len(annotation['faces'])
+                progress(idx, annotation)
+
+                model.getService('album').setPictureAnalysis(
+                    retainedPictures[idx]['albumId'], retainedPictures[idx]['pictureIdx'],
+                    AlbumAnalyzer.__version__)
+
+        progressBar.close()
+        logging.info("Saved %d detected faces in %s!", totalFaces, timeFormat(time.time() - start_t))
 
     def __vid_exists(self, videoPath, data):
         """
@@ -494,11 +626,19 @@ class Walker(Thread):
         for this video (or an empty dict for the first one.)
         """
         logging.info("Starting walking process from folder: %s" % root)
-
         if self._stopped():
             return self._interrupt()
 
+        folders = [os.path.join(root, file) for file in os.listdir(root)
+                   if os.path.isdir(os.path.join(root, file))]
+        progressBar = tqdm(total=len(folders),
+                           desc='[Walking')
+
         for dirpath, dirnames, filenames in os.walk(root):
+            if dirpath in folders:
+                progressBar.set_description('[Walking: %s' % dirpath)
+                progressBar.update()
+
             dirpath = dirpath.replace('\\', os.path.sep)
             dirpath = dirpath.replace('/', os.path.sep)
             for f in filenames:
@@ -528,3 +668,4 @@ class Walker(Thread):
                             })
                             self._send_progress()
                             break
+        progressBar.close()

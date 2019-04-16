@@ -6,13 +6,23 @@
 {% end %}
 
 {% block content %}
-<div class="uk-slidenav-position" data-uk-slideshow="{animation: 'scale', autoplay: true, kenburns:true, duration: 6000, autoplayInterval: 10000}" id="slideshow">
+<!-- zoom level is controleld by src\http\assets\uikit\css\uikit-custom.css:4604 -->
+<!-- entering zoom duration is controlld by src\http\assets\uikit\css\uikit-custom.css:4334 -->
+<!-- exiting zpp, duration is controlled by the `duration` field down here, which also defines how fast we can skip pictures -->
+<div class="uk-slidenav-position" data-uk-slideshow="{animation: 'scale', autoplay: true, kenburns:true, duration: 1000, autoplayInterval: 20000}" id="slideshow">
     <ul class="uk-slideshow uk-slideshow-fullscreen">
     </ul>
-    <a href="#!" class="uk-slidenav uk-slidenav-contrast uk-slidenav-previous" data-uk-slideshow-item="previous"></a>
-    <a href="#!" class="uk-slidenav uk-slidenav-contrast uk-slidenav-next" data-uk-slideshow-item="next"></a>
-    <a href="#!" class="uk-slidenav uk-slidenav-contrast uk-slidenav-10-previous" id="10-previous"></a>
-    <a href="#!" class="uk-slidenav uk-slidenav-contrast uk-slidenav-10-next" id="10-next"></a>
+    <a href="" class="uk-slidenav uk-slidenav-contrast uk-slidenav-previous" data-uk-slideshow-item="previous"></a>
+    <a href="" class="uk-slidenav uk-slidenav-contrast uk-slidenav-next" data-uk-slideshow-item="next"></a>
+    <a href="" class="uk-slidenav uk-slidenav-contrast uk-slidenav-10-previous" id="10-previous"></a>
+    <a href="" class="uk-slidenav uk-slidenav-contrast uk-slidenav-10-next" id="10-next"></a>
+    <div class="markers">
+        <span class="focus-marker invisible" style="display: none"></span>
+        <span class="face-frame invisible" style="display: none"></span>
+        {% for x in range(0, 68) %}
+            <span class="landsmark-marker invisible" id="landsmark-marker-{{x}}" style="display: none"></span>
+        {% end %}
+    </div>
 </div>
 
 <a href="/albums"><span class="close uk-tooltip-bottom uk-icon-close" title="close"></span></a>
@@ -42,7 +52,7 @@
 </div>
 <!-- <nav class="uk-navbar" id="controls">
 
-    <a class="uk-navbar-brand" href="#!">Controls</a>
+    <a class="uk-navbar-brand" href="">Controls</a>
  -->
 <!--     <ul class="uk-navbar-nav">
     </ul>

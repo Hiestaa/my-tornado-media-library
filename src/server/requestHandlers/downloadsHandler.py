@@ -96,18 +96,18 @@ class DownloadsHandler(RequestHandler):
         album['fullPath'] = '%s%s' % (
             Conf['data']['albums']['rootFolder'],
             album['fullPath'])
-        if picNumber > len(album['pictures']):
-            logging.error("Album has only %d pictures!" % len(album['pictures']))
+        if picNumber > len(album['picturesDetails']):
+            logging.error("Album has only %d pictures!" % len(album['picturesDetails']))
             raise HTTPError(404, "Not Found")
 
         if albumId == 'random' or albumId == 'starred':
             if picNumber > 0:
                 # the first picture is the icon, full exact path does not need to be reconstructed
-                picPath = Conf['data']['albums']['rootFolder'] + album['pictures'][picNumber]  # path already included
+                picPath = Conf['data']['albums']['rootFolder'] + album['picturesDetails'][picNumber]['filename']  # path already included
             else:
-                picPath = album['pictures'][picNumber]
+                picPath = album['picturesDetails'][picNumber]['filename']
         else:
-            picPath = album['fullPath'] + album['pictures'][picNumber]
+            picPath = album['fullPath'] + album['picturesDetails'][picNumber]['filename']
 
         try:
             with open(picPath, 'rb') as p:

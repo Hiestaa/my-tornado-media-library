@@ -12,11 +12,11 @@ import subprocess
 import io
 import json
 from datetime import datetime
+from tqdm import tqdm
 
 from conf import Conf
 from tools.utils import extends, timeFormat
 from tools.workspace import Workspace
-from server import model
 
 from tools.analyzer.analyzers import MinividAnalyzer, AnalysisPostProcessor, AnalysisAggregator
 from tools.analyzer.minivid import MinividGeneratorMonitor, MinividGenerator
@@ -32,13 +32,15 @@ class Analyzer(Thread):
     During the execution, the `progress` parameter will be updated with information to report
     progression to the client.
     """
+    __version__ = '0.1.0'
     def __init__(self, videoId, videoPath, snapshotsFolder,
                  progressCb=None, async=True, force=False,
-                 annotator='dfl-mt', videoDuration=0):
+                 annotator='dfl-mt', videoDuration=0, autoCleanup=False):
         """
         Initialize an analyzer for the given video and snapshots folder
         (both given relative to the base video directory defined in the config file).
         If the snapshot folder doesn't exist it will be created.
+        If `autoCleanup` is enabled, the workspace will be automatically cleaned up from temporary analysis files
         If `async` is set to True (default), the analyzer tasks will be performed on a separate thread
         The results of each intermediary step (minivid generation, analysis, post-processing and aggregation)
         are cached on disk, meaning that once they are retrieved / computed they will be reused as needed to
@@ -81,7 +83,7 @@ class Analyzer(Thread):
         * `data`: actual data being sent
         """
         super(Analyzer, self).__init__()
-        logging.info("Initializing new %s analyzer"
+        logging.debug("Initializing new %s analyzer"
                      % ('asynchroneous' if async else ''))
         self._async = async
         self._start_t = time.time()
@@ -100,6 +102,7 @@ class Analyzer(Thread):
         self._minividFolder = MinividGenerator.buildMinividFolderPath(self._workspace, self._snapshotsFolder)
         self._minividGenerator = None
         self._analyzer = None
+        self._autoCleanup = autoCleanup
 
         if not os.path.exists(self._snapshotsFolder):
             os.makedirs(self._snapshotsFolder)
@@ -109,10 +112,10 @@ class Analyzer(Thread):
 
     def start(self):
         if self._async:
-            logging.info("Starting analyzer process asynchroneously")
+            logging.debug("Starting analyzer process asynchroneously")
             super(Analyzer, self).start()
         else:
-            logging.info("Starting analyzer process")
+            logging.debug("Starting analyzer process")
             self.run()
 
     def stop(self):
@@ -132,6 +135,7 @@ class Analyzer(Thread):
         return self._stop_event.is_set()
 
     def run(self):
+        progressBar = tqdm(total=5 if self._autoCleanup else 4, desc="[Analysis Step: Initializing")
         self.initProgress(
             file=self._videoPath.replace(BASE_PATH, ''),
             step='Initializing',
@@ -139,6 +143,8 @@ class Analyzer(Thread):
             nb_frames=0,
             generation_complete=False)
 
+        progressBar.set_description('[Analysis Step: Minivid Generation')
+        progressBar.update()
         if self._stopped():
             return
 
@@ -149,21 +155,33 @@ class Analyzer(Thread):
             generation_complete=True,
             nb_frames=len(MinividGeneratorMonitor.getMinividFileList(minividFolder)))
 
+        progressBar.set_description('[Analysis Step: Minivid Analysis')
+        progressBar.update()
         if self._stopped():
             return
 
         results = self._analyzeMinivid(minividFolder)
 
+        progressBar.set_description('[Analysis Step: Minivid Post-Processing')
+        progressBar.update()
         if self._stopped():
             return
 
         ppResults = self._postProcessAnalyzis(results)
 
+        progressBar.set_description('[Analysis Step: Analysis Aggregation')
+        progressBar.update()
         if self._stopped():
             return
 
         aggregate = self._aggregateAnalyzis(ppResults)
 
+        if self._autoCleanup:
+            progressBar.set_description('[Analysis Step: Temporary Data Cleanup')
+            progressBar.update()
+            MinividGenerator.cleanup(minividFolder)
+
+        progressBar.close()
         if self._stopped():
             return
 
@@ -210,9 +228,18 @@ class Analyzer(Thread):
         self.progress(dataType='frame', data=None, step="Minivid generation, frame #%d" % nbFrames,
                       frame_number=lastGeneratedFrame, nb_frames=nbFrames)
 
+    def _shouldGenerateMinivid(self, minividFolder):
+        jsonDump = self._rawAnalysisDump(minividFolder)
+        return self._force or not os.path.exists(jsonDump)
+
     def _generateMinivid(self):
-        logging.info("Generating minivid for video: %s" % self._videoPath)
+        logging.debug("Generating minivid for video: %s" % self._videoPath)
         minividFolder = self._minividFolder
+
+        if not self._shouldGenerateMinivid(minividFolder):
+            logging.info("Minivid generation skipped for video: %s - cache data found already", self._videoPath)
+            return minividFolder
+
         expectedNbFrames = MinividGeneratorMonitor.computeExpectedNbFrames(self._videoDuration)
         try:
             foundNbFrames = len(os.listdir(minividFolder))
@@ -230,7 +257,8 @@ class Analyzer(Thread):
                          foundNbFrames, expectedNbFrames)
             MinividGenerator.cleanup(minividFolder)
 
-        self._minividGenerator = MinividGenerator(self._videoPath, self._snapshotsFolder, self._videoDuration)
+        self._minividGenerator = MinividGenerator(
+            self._videoPath, self._snapshotsFolder, self._videoDuration, silent=True)
         monitor = MinividGeneratorMonitor(
             path=minividFolder, callback=self._minividGenerationProgress,
             duration=self._videoDuration, generator=self._minividGenerator)
@@ -266,12 +294,15 @@ class Analyzer(Thread):
                       step='Minivid analysis, frame #%d' % (frameNumber),
                       file=data['name'])
 
+    def _rawAnalysisDump(self, minividFolder):
+        return os.path.join(self._snapshotsFolder, "%s-analysis_%s_raw.json" % (
+            os.path.basename(minividFolder), self._annotator))
+
     def _analyzeMinivid(self, minividFolder):
-        logging.debug("Performing analysis from minivid in folder: %s" % minividFolder)
-        jsonDump = os.path.join(self._snapshotsFolder, "%s-analysis_%s_raw.json" % (
-            os.path.basename(self._minividFolder), self._annotator))
-        # if not self._force and os.path.exists(jsonDump):
-        if os.path.exists(jsonDump):
+        logging.info("Performing analysis from minivid in folder: %s" % minividFolder)
+        jsonDump = self._rawAnalysisDump(minividFolder)
+        # if os.path.exists(jsonDump):
+        if not self._force and os.path.exists(jsonDump):
             try:
                 with open(jsonDump, 'r') as f:
                     results = json.load(f)
@@ -298,7 +329,7 @@ class Analyzer(Thread):
         for i, res in enumerate(self._analyzer()):
             if self._stopped():
                 self._analyzer.stop()
-                return ppResults  # don't save the cache if process was interrupted
+                return results  # don't save the cache if process was interrupted
             results.append(res)
 
         # don't dump if we don't have the full resultset!
@@ -309,6 +340,7 @@ class Analyzer(Thread):
         return results
 
     def _postProcessAnalyzis(self, results):
+        logging.info("Performing analysis post-processing of %d frames", len(results))
         jsonDump = os.path.join(self._snapshotsFolder, "%s-analysis_%s_pp.json" % (
             os.path.basename(self._minividFolder), self._annotator))
         if not self._force and os.path.exists(jsonDump):
@@ -338,7 +370,6 @@ class Analyzer(Thread):
                 dataType='annotation', data=res, frame_number=i,
                 step='Minivid analysis post-processing, frame #%d' % (len(ppResults)),
                 file=res['name'])
-            time.sleep(0.001)
 
         if len(ppResults) > 0 and len(ppResults) == len(results) and not self._stopped():
             with open(jsonDump, 'w') as f:
@@ -361,7 +392,7 @@ class Analyzer(Thread):
             except:
                 pass
         aggregator = AnalysisAggregator(results, self._start_t)
-        aggregResults = aggregator()
+        aggregResults = aggregator(Analyzer.__version__)
         with open(jsonDump, 'w') as f:
             json.dump(aggregResults, f)
         return aggregResults

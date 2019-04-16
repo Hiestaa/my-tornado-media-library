@@ -299,7 +299,11 @@ class VidsHandler(RequestHandler):
             if (Conf['server']['playVideosVLC']):
                 subprocess.call(
                     '%s "%s"'
-                    % (Conf['server']['vlcPath'], videoPath));
+                    % (Conf['server']['vlcPath'], videoPath))
+            elif (Conf['server']['playVideosMPC']):
+                subprocess.call(
+                    '%s "%s"'
+                    % (Conf['server']['mpcPath'], videoPath))
             else:
                 try:
                     os.startfile(videoPath)

@@ -134,10 +134,10 @@ $(function () {
                     spinLoading('stop');
                 },
                 success: function (album) {
-                    preloadPictures(album.picturesURL.slice(1, 4), function () {
-                        for (var i = 1; i < Math.min(album.picturesURL.length, 20); i++) {
+                    preloadPictures(album.picturesDetails.slice(1, 4).map(pic => pic.url), function () {
+                        for (var i = 1; i < Math.min(album.picturesDetails.length, 20); i++) {
                             $('#pic-container ul').append(
-                                '<li><img src="' + album.picturesURL[i] + '"></li>');
+                                '<li><img src="' + album.picturesDetails[i].url + '"></li>');
                         };
                         self.slideshow = $.UIkit.slideshow('#pic-container', {autoplay: true, animation: 'random-fx', duration: 2000});
                         spinLoading('stop');

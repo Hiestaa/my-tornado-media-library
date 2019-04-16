@@ -41,9 +41,9 @@ class TemplatesHandler(RequestHandler):
             filename, args = splitted[0], splitted[1:]
             kwtargs = {arg.split('=')[0]: arg.split('=')[1] for arg in args if len(arg.split('=')) > 1}
             if filename == 'slideshow' and kwtargs['albumId'] == 'random':
-                model.getService('album').resetRandomAlbum()
+                model.getService('album').resetRandomAlbum(replace=True)
             if filename == 'slideshow' and kwtargs['albumId'] == 'starred':
-                model.getService('album').resetStarredAlbum()
+                model.getService('album').resetStarredAlbum(replace=True)
             self.render(
                 templateRoutes[filename],
                 currentPage=filename, debug=Conf['state'] == 'DEBUG',

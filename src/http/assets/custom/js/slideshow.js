@@ -1,5 +1,7 @@
 $(function () {
-    function Controls(album, deleteModal, currentPic) {
+    var CURSOR_DISAPPEAR_TIMEOUT = 5000;
+
+    function Controls(album, deleteModal, currentPic=0) {
         var self = this;
         self.album = album;
         self.$view = $('#controls');
@@ -12,7 +14,7 @@ $(function () {
         self.$view.find('#album-title').html(render(self.titleTemplate, {
             'title': self.album.name,
             'current': currentPic + 1,
-            'total': self.album.picturesURL.length,
+            'total': self.album.picturesDetails.length,
         }));
         self.currentPicture = null;
         self.deleteModal = deleteModal;
@@ -35,7 +37,7 @@ $(function () {
             console.log("Star clicked!");
             // save, in case it changes
             var pic = self.currentPicture;
-            if (self.album.starred.indexOf(pic) === -1){
+            if (!self.album.picturesDetails[pic].starred){
                 console.log("Starring picture" + pic + "...")
                 $.ajax({
                     url: '/api/album/star',
@@ -48,12 +50,11 @@ $(function () {
                     },
                     success: function () {
                         self.$view.find('#album-title #star').addClass('starred');
-                        if (self.album.starred.indexOf(pic) === -1)
-                            self.album.starred.push(pic);
+                        self.album.picturesDetails[pic].starred = true;
                     }
                 });
             }
-            if (self.album.starred.indexOf(pic) !== -1){
+            else {
                 console.log("UN-Starring picture" + pic + "...")
                 $.ajax({
                     url: '/api/album/star',
@@ -66,8 +67,7 @@ $(function () {
                     },
                     success: function () {
                         self.$view.find('#album-title #star').removeClass('starred');
-                        if (self.album.starred.indexOf(pic) !== -1)
-                            delete self.album.starred[self.album.starred.indexOf(pic)]
+                        self.album.picturesDetails[pic].starred = false;
                     }
                 });
                 self.$view.find('#album-title #star').removeClass('starred');
@@ -100,9 +100,9 @@ $(function () {
         self.updateCurrentPicture = function (currentPicture) {
             self.currentPicture = currentPicture;
 
-            if (self.album.starred.indexOf(self.currentPicture) !== -1 && !self.$view.find('#album-title #star').hasClass('starred'))
+            if (self.album.picturesDetails[self.currentPicture].starred)
                 self.$view.find('#album-title #star').addClass('starred');
-            if (self.album.starred.indexOf(self.currentPicture) === -1 && self.$view.find('#album-title #star').hasClass('starred'))
+            else
                 self.$view.find('#album-title #star').removeClass('starred');
             if (self.album.cover == self.currentPicture && !self.$view.find('#album-title #cover').hasClass('selected'))
                 self.$view.find('#album-title #cover').addClass('selected');
@@ -110,12 +110,12 @@ $(function () {
                 self.$view.find('#album-title #cover').removeClass('selected');
 
             self.$view.find('#album-title #counter').html(
-                (self.currentPicture + 1) + ' / ' + self.album.picturesURL.length);
+                (self.currentPicture + 1) + ' / ' + self.album.picturesDetails.length);
 
             // update the thumbnail displayed on the delete modal
 
             $('#delete-modal .uk-modal-caption img').attr(
-                'src', self.album.picturesURL[currentPicture]);
+                'src', self.album.picturesDetails[self.currentPicture].url);
         }
         self.updateCurrentPicture(currentPic);
         self.show = function () {
@@ -342,7 +342,8 @@ $(function () {
                 },
                 success: self.onRcvTags
             });
-        }    }
+        }
+    }
 
     function Slideshow(albumId, firstPic) {
         var self = this;
@@ -353,12 +354,92 @@ $(function () {
         self.deleteModal = $.UIkit.modal("#delete-modal");
         self.maxSimulateousLoad = 7;  // does not work if mod 2 == 0
         self.currentSlide = 0;
+        self.appearingSlide = 0;
         self.slideSetSize = 0;
         self.realCurrentSlide = firstPic;
         self.pause = true;
 
         self.controls = null;
-        self.onCallNext = function (ignored, newIndex, direction) {
+
+        // set the proper position for the kenburns (zoom) focus of the coming image
+        // also set the position of the face markers
+        self.beforeShowNext = function (event, newIndex, direction) {
+            // fix issue where direction is inverted (1 should be front)
+            direction = -direction;
+            // fix issue where going from 0 to X (reverse) actually returns a normal direction
+            if (direction == 1 && newIndex == self.slideSetSize - 1 && self.currentSlide == 0)
+                direction = -1;
+            if (direction == -1 && newIndex == 0 && self.currentSlide == self.slideSetSize - 1)
+                direction = 1;
+
+            realCurrentSlide = self.realCurrentSlide + direction;
+            if (realCurrentSlide < 0)
+                realCurrentSlide += self.album.picturesDetails.length;
+            if (realCurrentSlide >= self.album.picturesDetails.length)
+                realCurrentSlide -= self.album.picturesDetails.length;
+
+            self.appearingSlide = newIndex;
+
+            var pic = self.album.picturesDetails[realCurrentSlide];
+
+            var isWideScreen = $('body').width() / $('body').height() > pic.width / pic.height;
+
+            var toCanvasX = function (x) {
+                var sw = $('body').width();
+                var pw = pic.width;
+                var sh = $('body').height();
+                var ph = pic.height;
+                if (isWideScreen)  // only works if the screen is wider than the image
+                    return sw / 2 - (pw / 2 - x) * sh / ph;
+                else  // only works if the screen is narrower than the image
+                    return sw / 2 - (pw / 2 - x) * sw / pw;
+            }
+
+            var toCanvasY = function (y) {
+                var sw = $('body').width();
+                var pw = pic.width;
+                var sh = $('body').height();
+                var ph = pic.height;
+                if (isWideScreen)
+                    return sh / 2 - (ph / 2 - y) * sh / ph;
+                else
+                    return sh / 2 - (ph / 2 - y) * sw / pw;
+            }
+
+
+            console.log("Faces for pic " + pic.filename, pic.faces);
+            if (pic.faces && pic.faces.length > 0) {
+                var face = pic.faces[0];
+                var x = toCanvasX(face.boundaries[0].x);// + (face.boundaries[1].x - face.boundaries[0].x) / 2
+                var y = toCanvasY(face.boundaries[0].y);
+                var centerX = toCanvasX(face.boundaries[0].x + (face.boundaries[1].x - face.boundaries[0].x) / 2);
+                var centerY = toCanvasY(face.boundaries[0].y);
+                var bottomX = toCanvasX(face.boundaries[1].x);
+                var bottomY = toCanvasY(face.boundaries[1].y);
+                $('.face-frame')
+                    .css('left', x)
+                    .css('top', y)
+                    .css('width', bottomX - x)
+                    .css('height', bottomY - y)
+                    .css('display', 'block');
+                for (var i = 0; i < face.landmarks.length; i++) {
+                    var l = face.landmarks[i];
+                    $('#landsmark-marker-' + i)
+                        .css('left', toCanvasX(l.x))
+                        .css('top', toCanvasY(l.y))
+                        .css('display', 'block');
+                }
+                self._setKenburnsFocus(centerX, centerY);
+            }
+            else {
+                $('.face-frame').css('display', 'none');
+                $('.landsmark-marker').css('display', 'none');
+                self._setKenburnsFocus($('body').width() / 2, $('body').height() / 3);
+            }
+        }
+
+        // cycle through the images of the albums assigned to each slide
+        self.onShowNext = function (event, newIndex, direction) {
             // reinit state of the previous slide (which is still the current) if zoomed
             if ($('#slideshow ul li div:nth(' + self.currentSlide + ')').hasClass('zoomed')) {
                 $('#slideshow ul li div:nth(' + self.currentSlide + ')').removeClass('zoomed')
@@ -377,14 +458,14 @@ $(function () {
             self.currentSlide = newIndex;
             self.realCurrentSlide += direction;
             if (self.realCurrentSlide < 0)
-                self.realCurrentSlide += self.album.picturesURL.length;
-            if (self.realCurrentSlide >= self.album.picturesURL.length)
-                self.realCurrentSlide -= self.album.picturesURL.length;
+                self.realCurrentSlide += self.album.picturesDetails.length;
+            if (self.realCurrentSlide >= self.album.picturesDetails.length)
+                self.realCurrentSlide -= self.album.picturesDetails.length;
             self.controls.updateCurrentPicture(self.realCurrentSlide)
-
+            // TODO: update the zoom pointer, to point to the center of one of the faces, if there is one
 
             // don't do anything more if the size of the slideset IS total number of slides.
-            if (self.slideSetSize == self.album.picturesURL.length)
+            if (self.slideSetSize == self.album.picturesDetails.length)
                 return;
 
             console.log("Displaying slide: ", $('#slideshow ul li div:nth(' + newIndex + ')').attr('data-slide-idx'));
@@ -395,21 +476,23 @@ $(function () {
 
             // if new image index is below 0, it should be the last of the album
             if (newImgIdx < 0)
-                newImgIdx = self.album.picturesURL.length + newImgIdx;
-            if (newImgIdx >= self.album.picturesURL.length)
-                newImgIdx = newImgIdx - self.album.picturesURL.length;
+                newImgIdx = self.album.picturesDetails + newImgIdx;
+            if (newImgIdx >= self.album.picturesDetails.length)
+                newImgIdx = newImgIdx - self.album.picturesDetails.length;
 
             if (slideToEdit < 0)
                 slideToEdit = self.slideSetSize + slideToEdit;
             else if (slideToEdit >= self.slideSetSize)
                 slideToEdit = slideToEdit - self.slideSetSize;
 
-            preloadPictures([self.album.picturesURL[newImgIdx]], function () {
+            if (!self.album.picturesDetails[newImgIdx].url) { debugger; return; }
+
+            preloadPictures([self.album.picturesDetails[newImgIdx].url], function () {
                 console.log("Slide " + slideToEdit + " replaced by " + newImgIdx);
                 $('#slideshow ul li div:nth(' + slideToEdit + ')').attr('data-slide-idx', newImgIdx);
-                $('#slideshow ul li img:nth(' + slideToEdit + ')').attr('src', self.album.picturesURL[newImgIdx]);
+                $('#slideshow ul li img:nth(' + slideToEdit + ')').attr('src', self.album.picturesDetails[newImgIdx].url);
                 $('#slideshow ul li div:nth(' + slideToEdit + ')').css(
-                    'background-image', 'url("' + self.album.picturesURL[newImgIdx] + '")');
+                    'background-image', 'url("' + self.album.picturesDetails[newImgIdx].url + '")');
             });
         }
 
@@ -429,27 +512,29 @@ $(function () {
                     self.album = album;
                     self.controls = new Controls(album, self.deleteModal);
                     if (self.realCurrentSlide < 0)
-                        self.realCurrentSlide += self.album.picturesURL.length;
-                    if (self.realCurrentSlide >= self.album.picturesURL.length)
-                        self.realCurrentSlide = self.realCurrentSlide % self.album.picturesURL.length;
+                        self.realCurrentSlide += self.album.picturesDetails.length;
+                    if (self.realCurrentSlide >= self.album.picturesDetails.length)
+                        self.realCurrentSlide = self.realCurrentSlide % self.album.picturesDetails.length;
                     self.controls.updateCurrentPicture(self.realCurrentSlide)
-                    preloadPictures(album.picturesURL.slice(self.realCurrentSlide, self.realCurrentSlide + 1), function () {
-                        self.slideSetSize = Math.min(self.maxSimulateousLoad, album.picturesURL.length);
+                    preloadPictures(album.picturesDetails.slice(self.realCurrentSlide, self.realCurrentSlide + 1).map(p => p.url), function () {
+                        self.slideSetSize = Math.min(self.maxSimulateousLoad, album.picturesDetails.length);
                         // only the 30 first pics
                         for (var i = self.realCurrentSlide; i < self.realCurrentSlide + self.slideSetSize; i++) {
                             var pic = i;
                             if (pic > self.realCurrentSlide + Math.floor(self.slideSetSize / 2))
                                 pic -= self.slideSetSize;
                             if (pic < 0)
-                                pic += self.album.picturesURL.length;
-                            if (pic >= self.album.picturesURL.length)
-                                pic -= self.album.picturesURL.length;
+                                pic += self.album.picturesDetails.length;
+                            if (pic >= self.album.picturesDetails.length)
+                                pic -= self.album.picturesDetails.length;
                             $('#slideshow ul').append(
-                                '<li><img src="' + album.picturesURL[pic] + '"></li>')
+                                '<li><img src="' + album.picturesDetails[pic].url + '"></li>')
                             };
                             self.ukSlideshow = $.UIkit.slideshow('#slideshow');
-                        self.ukSlideshow.on('uk.slideshow.show', self.onCallNext);
+                        self.ukSlideshow.on('uk.slideshow.show', self.onShowNext);
+                        self.ukSlideshow.on('uk.slideshow.beforeshow', self.beforeShowNext)
                         self.ukSlideshow.init();
+                        self.beforeShowNext(null, 0, 0)
                         // set to pause or play according to autoplay option
                         self.pause = !self.ukSlideshow.options.autoplay;
                         // update interface
@@ -537,21 +622,94 @@ $(function () {
                 $('#play').removeClass('active');
         }
 
+        self.mousePos = {x: $('body').width() / 2, y: $('body').height() / 2};
+        self.onKeyDown = function (e) {
+            if (e.altKey || e.shiftKey || e.ctrlKey) {
+                self.mousePos = self.currentMousePos;
+            }
+            switch (e.keyCode) {
+                case 37:  // left
+                    self.ukSlideshow.previous()
+                    break;
+                case 39: // right
+                    self.ukSlideshow.next()
+                    break;
+                case 32:
+                    self.togglePause()
+                    break;
+                case 27: // escape
+                    break;  // open control panel? check that it does not kill the zoom....
+                case 46: // delete
+                    if (!self.album)
+                        return
+                    self.deleteModal.show();
+                    break;
+                case 13: // enter
+                    if (self.deleteModal.isActive())
+                        self.onDeletePicture();
+                    break;
+                case 107: // +
+                    e.preventDefault();
+                    self.performZoom(scaleFactor);
+                    break
+                case 109: // -
+                    e.preventDefault();
+                    self.performZoom(1.0 / scaleFactor);
+                    break;
+            };
+        }
+
+        self.$appearingSlide = function () {
+            return $('#slideshow ul li:nth-child(' + (self.appearingSlide + 1) + ') div');
+        }
+
+        self._getKenburnsFocus =  function () {
+            var currentTO = self.$appearingSlide()
+                .css('transform-origin') || (self.mousePos.x + 'px ' + self.mousePos.y + 'px');
+            currentTO = currentTO.split(' ');
+            return {
+                x:  parseInt(currentTO[0].slice(0, -2)),
+                y:  parseInt(currentTO[1].slice(0, -2))
+            }
+        }
+
+        self._setKenburnsFocus = function (x, y) {
+            $('.focus-marker').css('left', x);
+            $('.focus-marker').css('top', y);
+            $('.focus-marker').css('display', 'block');
+            self.$appearingSlide().css('transform-origin', x + 'px ' + y + 'px');
+        }
+
+        self.currentMousePos = {x: $('body').width() / 2, y: $('body').height() / 2};
+        self.hideCursorTimeout = null;
         self.onMouseMove = function (e) {
+            self.currentMousePos = {x: e.pageX, y: e.pageY};
             if ((!e.altKey && !e.shiftKey && !e.ctrlKey) || self.deleteModal.isActive() || self.controls.isActive) {
                 $('#slideshow ul').css('cursor', 'default');
+                clearTimeout(self.hideCursorTimeout);
+                self.hideCursorTimeout = setTimeout(function () {
+                    $('#slideshow ul').css('cursor', 'none');
+                }, CURSOR_DISAPPEAR_TIMEOUT);
                 return;
             }
             else {
                 $('#slideshow ul').css('cursor', 'none');
+                clearTimeout(self.hideCursorTimeout);
             }
-            var scaleFactor = $('#slideshow ul li div:nth(' + self.currentSlide + ')').css('transform');
+            // legacy
+            var scaleFactor = self.$appearingSlide().css('transform');
             scaleFactor = parseFloat(scaleFactor.substring(7, scaleFactor.indexOf(',')));
-            var w = $(this).width();
-            var h = $(this).height();
-            var relX = (e.pageX - w / 2) * 3; // * scale factor ?
-            var relY = (e.pageY - h/2) * 3; // * scale factor ?
-            $('#slideshow ul li div').css('transform-origin', relX + 'px ' + relY + 'px');
+            // var w = $(this).width();
+            // var h = $(this).height();
+            // var relX = (e.pageX - w / 2) * 3; // * scale factor ?
+            // var relY = (e.pageY - h/2) * 3; // * scale factor ?
+            currentTO = self._getKenburnsFocus();
+            var deltaX = self.currentMousePos.x - self.mousePos.x;
+            var deltaY = self.currentMousePos.y - self.mousePos.y;
+            self.mousePos = self.currentMousePos;
+            var relX = currentTO.x + deltaX / (scaleFactor / 10);
+            var relY = currentTO.y + deltaY / (scaleFactor / 10);
+            self._setKenburnsFocus(relX, relY);
         };
 
         var scaleFactor = 1.3;
@@ -571,7 +729,7 @@ $(function () {
         };
 
         self.performZoom = function (factor) {
-            $this = $('#slideshow ul li.uk-active div');
+            $this = self.$appearingSlide();
             var cur_transform = $this.css('transform');
             if (!$this.hasClass('zoomed')) {
                 $this.addClass('zoomed')
@@ -615,39 +773,8 @@ $(function () {
                         }
                 }
             });
-            $('body').keydown(function (e) {
-                switch (e.keyCode) {
-                    case 37:  // left
-                        self.ukSlideshow.previous()
-                        break;
-                    case 39: // right
-                        self.ukSlideshow.next()
-                        break;
-                    case 32:
-                        self.togglePause()
-                        break;
-                    case 27: // escape
-                        break;  // open control panel? check that it does not kill the zoom....
-                    case 46: // delete
-                        if (!self.album)
-                            return
-                        self.deleteModal.show();
-                        break;
-                    case 13: // enter
-                        if (self.deleteModal.isActive())
-                            self.onDeletePicture();
-                        break;
-                    case 107: // +
-                        e.preventDefault();
-                        self.performZoom(scaleFactor);
-                        break
-                    case 109: // -
-                        e.preventDefault();
-                        self.performZoom(1.0 / scaleFactor);
-                        break;
-                };
-            });
             $('body').mousemove(self.onMouseMove);
+            $('body').keydown(self.onKeyDown);
             $('#slideshow ul li div').off().bind('mousewheel DOMMouseScroll', self.onMouseZoom);
         }
     };

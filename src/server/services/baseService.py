@@ -5,6 +5,7 @@ from pprint import pformat
 import logging
 
 from bson.objectid import ObjectId
+from tqdm import tqdm
 
 from conf import Conf
 
@@ -127,7 +128,7 @@ class Service(object):
         logging.info("removing by id: %s" % _id)
         return self._collection.remove({'_id': ObjectId(_id)})
 
-    def getAll(self, page=0, perPage=0, returnList=True, orderBy=None):
+    def getAll(self, page=0, perPage=0, returnList=True, orderBy=None, projection=None):
         """
         Returns all documens available in this collection.
         * page:int is the page number (default is 0)
@@ -136,17 +137,21 @@ class Service(object):
         * orderBy: dict allow to select on which field to perform the ordering
         Returns a list of elements by default.
         """
-        if orderBy is None:
-            cursor = self._collection.find({})
-        else:
-            cursor = self._collection.find({'$query': {}, '$orderby': orderBy})
+        cursor = self._collection.find({}, projection)
+        if orderBy is not None:
+            sort = []
+            for k in orderBy:
+                sort.append((k, orderBy[k]))
+            cursor.sort(sort)
         if page > 0 and perPage > 0:
-            cursor.skip((page - 1) * perPage).limit(perPage)
+            cursor.skip((page - 1) * perPage)
+        if perPage > 0:
+            cursor.limit(perPage)
         if returnList:
-            return [item for item in cursor]
+            return [item for item in tqdm(cursor, desc='[Fetching')]
         return cursor
 
-    def set(self, _id, field, value, update=None):
+    def set(self, _id, field, value, update=None, validate=True):
         """
         If _id is a list, it will be used as a list of ids. All documents matching these ids
         will be
@@ -157,8 +162,9 @@ class Service(object):
             select['_id'] = {'$in': [ObjectId(i) for i in _id]}
         else:
             select['_id'] = ObjectId(_id)
-        self.validate({field: value}, strict=False)
+        if validate:
+            self.validate({field: value}, strict=False)
+
         update['$set'] = update.get('$set', {})
         update['$set'][field] = value
-        print('update', update)
         self._collection.update(select, update, multi=True)
